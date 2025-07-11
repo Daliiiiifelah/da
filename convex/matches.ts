@@ -18,7 +18,7 @@ async function getLoggedInUserOrThrow(ctx: QueryCtx | MutationCtx) {
 
 export const createMatch = mutation({
   args: {
-    sport: v.string(),
+    // sport: v.string(), // Removed for football-only focus
     location: v.string(),
     dateTime: v.number(),
     playersNeeded: v.number(),
@@ -42,7 +42,8 @@ export const createMatch = mutation({
     }
 
     // Generate default party name if not provided
-    const defaultPartyName = `${args.sport} at ${args.location}`;
+    // const defaultPartyName = `${args.sport} at ${args.location}`; // Sport removed
+    const defaultPartyName = `Football at ${args.location}`;
     const partyName = args.partyName?.trim() || defaultPartyName;
 
     // Check if party name is unique (case-insensitive)
@@ -57,7 +58,7 @@ export const createMatch = mutation({
 
     const matchId = await ctx.db.insert("matches", {
       creatorId: user._id,
-      sport: args.sport,
+      // sport: args.sport, // Removed for football-only focus
       location: args.location,
       dateTime: args.dateTime,
       playersNeeded: args.playersNeeded,
@@ -84,7 +85,7 @@ export const searchParties = query({
     
     const filteredMatches = allMatches.filter(match => 
       match.partyName?.toLowerCase().includes(searchTerm) ||
-      match.sport.toLowerCase().includes(searchTerm) ||
+      // match.sport.toLowerCase().includes(searchTerm) || // Sport removed
       match.location.toLowerCase().includes(searchTerm)
     );
 

@@ -84,7 +84,7 @@ const Card = ({ children, className = "" }: { children: React.ReactNode; classNa
 );
 
 function CreateMatchForm({ onClose }: { onClose: () => void }) {
-  const [sport, setSport] = useState("Football");
+  // const [sport, setSport] = useState("Football"); // Removed for football-only focus
   const [location, setLocation] = useState("");
   const [dateTime, setDateTime] = useState("");
   const [playersNeeded, setPlayersNeeded] = useState(10);
@@ -111,7 +111,7 @@ function CreateMatchForm({ onClose }: { onClose: () => void }) {
 
     try {
       await createMatch({
-        sport,
+        // sport, // Removed for football-only focus
         location,
         dateTime: matchDateTime,
         playersNeeded: Number(playersNeeded),
@@ -134,7 +134,7 @@ function CreateMatchForm({ onClose }: { onClose: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <InputField label="Sport" value={sport} onChange={(e) => setSport(e.target.value)} placeholder="e.g., Football, Basketball" required />
+      {/* <InputField label="Sport" value={sport} onChange={(e) => setSport(e.target.value)} placeholder="e.g., Football, Basketball" required /> Removed for football-only focus */}
       <InputField label="Location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., Local Park Pitch 1" required />
       <InputField label="Date and Time" type="datetime-local" value={dateTime} onChange={(e) => setDateTime(e.target.value)} required 
         className="text-card-foreground [&::-webkit-calendar-picker-indicator]:bg-gray-400 [&::-webkit-calendar-picker-indicator]:rounded"
@@ -371,11 +371,11 @@ function MatchCard({ match, currentUserId, onUserClick }: { match: Doc<"matches"
             onClick={() => onUserClick(match.creatorId)}
           />
           <div>
-            <h3 className="text-2xl font-bold text-primary">{match.partyName || `${match.sport} Match`}</h3>
+            <h3 className="text-2xl font-bold text-primary">{match.partyName || "Football Match"}</h3>
             <p className="text-xs text-muted-foreground">Hosted by <span className="text-text-blue-accent cursor-pointer hover:underline" onClick={() => onUserClick(match.creatorId)}>{creatorProfile?.name ?? "An Egoist"}</span></p>
           </div>
         </div>
-        <p className="text-card-foreground"><span className="font-semibold text-text-cyan-accent">Sport:</span> {match.sport}</p>
+        {/* <p className="text-card-foreground"><span className="font-semibold text-text-cyan-accent">Sport:</span> {match.sport}</p> Removed for football-only focus */}
         <p className="text-card-foreground"><span className="font-semibold text-text-cyan-accent">Location:</span> {match.location}</p>
         <p className="text-card-foreground"><span className="font-semibold text-text-cyan-accent">When:</span> {new Date(match.dateTime).toLocaleString()}</p>
         
@@ -438,13 +438,13 @@ function MatchCard({ match, currentUserId, onUserClick }: { match: Doc<"matches"
       </div>
 
       {/* Regular Join Modal */}
-      <Modal isOpen={showJoinModal} onClose={() => {setShowJoinModal(false); setSelectedTeam("A"); setSelectedPosition("defender");}} title={`Join Team Match: ${match.partyName || match.sport}`} size="lg" contentClassName="flex-grow">
+      <Modal isOpen={showJoinModal} onClose={() => {setShowJoinModal(false); setSelectedTeam("A"); setSelectedPosition("defender");}} title={`Join Team Match: ${match.partyName || "Football Match"}`} size="lg" contentClassName="flex-grow">
         {matchDetails === undefined && <div className="text-center py-4 text-muted-foreground">Loading match details... <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mt-2"></div></div>}
         {matchDetails === null && <p className="text-destructive">Error: Could not load match details.</p>}
         {matchDetails && (
           <div>
             <img src="/stadium-placeholder.jpg" alt="Stadium" className="w-full h-48 object-cover rounded-md mb-4"/>
-            <p className="mb-1 text-lg text-card-foreground"><strong>{match.sport}</strong> at <strong>{match.location}</strong></p>
+            <p className="mb-1 text-lg text-card-foreground"><strong>Football</strong> at <strong>{match.location}</strong></p> {/* Sport hardcoded to Football */}
             <p className="mb-4 text-sm text-muted-foreground">Choose your team and position. Each team needs {maxPerTeam} players (1 goalkeeper + {maxPerTeam-1} field players).</p>
             
             {/* Team Selection */}
@@ -523,13 +523,13 @@ function MatchCard({ match, currentUserId, onUserClick }: { match: Doc<"matches"
       </Modal>
 
       {/* Creator Join Modal */}
-      <Modal isOpen={showCreatorJoinModal} onClose={() => {setShowCreatorJoinModal(false); setSelectedTeam("A"); setSelectedPosition("defender");}} title={`Join Your Match as Player: ${match.partyName || match.sport}`} size="lg" contentClassName="flex-grow">
+      <Modal isOpen={showCreatorJoinModal} onClose={() => {setShowCreatorJoinModal(false); setSelectedTeam("A"); setSelectedPosition("defender");}} title={`Join Your Match as Player: ${match.partyName || "Football Match"}`} size="lg" contentClassName="flex-grow">
         {matchDetails === undefined && <div className="text-center py-4 text-muted-foreground">Loading match details... <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mt-2"></div></div>}
         {matchDetails === null && <p className="text-destructive">Error: Could not load match details.</p>}
         {matchDetails && (
           <div>
             <img src="/stadium-placeholder.jpg" alt="Stadium" className="w-full h-48 object-cover rounded-md mb-4"/>
-            <p className="mb-1 text-lg text-card-foreground"><strong>{match.sport}</strong> at <strong>{match.location}</strong></p>
+            <p className="mb-1 text-lg text-card-foreground"><strong>Football</strong> at <strong>{match.location}</strong></p> {/* Sport hardcoded to Football */}
             <p className="mb-4 text-sm text-muted-foreground">As the party creator, you can join your own match as a player. Choose your team and position. Each team needs {maxPerTeam} players (1 goalkeeper + {maxPerTeam-1} field players).</p>
             
             {/* Team Selection */}
@@ -607,7 +607,7 @@ function MatchCard({ match, currentUserId, onUserClick }: { match: Doc<"matches"
         )}
       </Modal>
       
-      <Modal isOpen={showDetailsModal} onClose={() => setShowDetailsModal(false)} title={`Team Match Details: ${match.partyName || match.sport}`} size="lg" contentClassName="flex-grow">
+      <Modal isOpen={showDetailsModal} onClose={() => setShowDetailsModal(false)} title={`Team Match Details: ${match.partyName || "Football Match"}`} size="lg" contentClassName="flex-grow">
         {matchDetails === undefined && <p className="text-muted-foreground">Loading details...</p>}
         {matchDetails === null && <p className="text-destructive">Match not found.</p>}
         {matchDetails && (
@@ -619,7 +619,7 @@ function MatchCard({ match, currentUserId, onUserClick }: { match: Doc<"matches"
                     <p className="font-semibold text-card-foreground">Hosted by <span className="text-text-blue-accent cursor-pointer hover:underline" onClick={() => onUserClick(match.creatorId)}>{matchDetails.creatorName}</span></p>
                 </div>
             </div>
-            <p className="text-card-foreground"><strong>Sport:</strong> {matchDetails.sport}</p>
+            {/* <p className="text-card-foreground"><strong>Sport:</strong> {matchDetails.sport}</p> Removed for football-only focus */}
             <p className="text-card-foreground"><strong>Location:</strong> {matchDetails.location}</p>
             <p className="text-card-foreground"><strong>Date:</strong> {new Date(matchDetails.dateTime).toLocaleString()}</p>
             <p className="text-card-foreground"><strong>Format:</strong> {maxPerTeam} vs {maxPerTeam} (Team A vs Team B)</p>
@@ -659,7 +659,7 @@ function MatchCard({ match, currentUserId, onUserClick }: { match: Doc<"matches"
         )}
       </Modal>
       {currentUserId && <RatePlayersModal isOpen={showRatePlayersModal} onClose={() => setShowRatePlayersModal(false)} matchId={match._id} currentUserId={currentUserId} />}
-      {currentUserId && (match.status === "open" || match.status === "full") && <PartyChatModal isOpen={showPartyChatModal} onClose={() => setShowPartyChatModal(false)} matchId={match._id} matchName={match.partyName || match.sport} />}
+       {currentUserId && (match.status === "open" || match.status === "full") && <PartyChatModal isOpen={showPartyChatModal} onClose={() => setShowPartyChatModal(false)} matchId={match._id} matchName={match.partyName || "Football Match"} />}
     </Card>
   );
 }

@@ -5,7 +5,7 @@ import { authTables } from "@convex-dev/auth/server";
 const applicationTables = {
   matches: defineTable({
     creatorId: v.id("users"),
-    sport: v.string(),
+    // sport: v.string(), // Removed for football-only focus
     location: v.string(),
     dateTime: v.number(), 
     playersNeeded: v.number(),
