@@ -89,6 +89,7 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
       const [displayName, setDisplayName] = useState("");
       const [isEditingDisplayName, setIsEditingDisplayName] = useState(false);
       const [country, setCountry] = useState(""); // New state for country
+      const [favoritePosition, setFavoritePosition] = useState<string>(""); // New state for favoritePosition
       const fileInputRef = useRef<HTMLInputElement>(null);
       const [showReportModal, setShowReportModal] = useState(false);
       const [showInviteModal, setShowInviteModal] = useState(false);
@@ -123,6 +124,7 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
           setBio(userProfileToView.bio ?? "");
           setDisplayName(userProfileToView.displayName ?? userProfileToView.name ?? "");
           setCountry(userProfileToView.country ?? ""); // Initialize country
+          setFavoritePosition(userProfileToView.favoritePosition ?? ""); // Initialize favoritePosition
           // Hexagon stats are now peer-aggregated, no longer need to initialize for direct editing here
           // setSpeed(userProfileToView.speed?.toString() ?? "");
           // setDefense(userProfileToView.defense?.toString() ?? "");
@@ -145,7 +147,12 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
         e.preventDefault();
         if (!viewingOwnProfile) return;
         try {
-          await updateUserProfileMutation({ bio, country: country.trim() === "" ? undefined : country.trim() });
+          const favPos = favoritePosition.trim() === "" ? undefined : favoritePosition as "goalkeeper" | "defender" | "midfielder" | "forward";
+          await updateUserProfileMutation({
+            bio,
+            country: country.trim() === "" ? undefined : country.trim(),
+            favoritePosition: favPos
+          });
           toast.success("Profile details updated!");
           setIsEditingBio(false);
         } catch (error) {
@@ -235,15 +242,36 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
                     <form onSubmit={handleProfileTextualInfoSave} className="space-y-3">
                       <TextareaField label="Bio" value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Unleash your ego, tell us about yourself..." rows={3}/>
                       <InputField label="Country" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="e.g., Japan, Germany" />
+                      <div>
+                        <label htmlFor="favoritePosition" className="block text-sm font-medium text-muted-foreground mb-1">Favorite Position</label>
+                        <select
+                          id="favoritePosition"
+                          value={favoritePosition}
+                          onChange={(e) => setFavoritePosition(e.target.value)}
+                          className="w-full px-3 py-2 rounded border bg-input border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-shadow shadow-sm hover:shadow-md text-card-foreground"
+                        >
+                          <option value="">Not Set / Any</option>
+                          <option value="goalkeeper">Goalkeeper</option>
+                          <option value="defender">Defender</option>
+                          <option value="midfielder">Midfielder</option>
+                          <option value="forward">Forward</option>
+                        </select>
+                      </div>
                       <div className="flex gap-2 mt-2">
                         <Button type="submit">Save Details</Button>
-                        <Button type="button" variant="secondary" onClick={() => { setIsEditingBio(false); setBio(profileData.bio ?? ""); setCountry(profileData.country ?? "");}}>Cancel</Button>
+                        <Button type="button" variant="secondary" onClick={() => {
+                          setIsEditingBio(false);
+                          setBio(profileData.bio ?? "");
+                          setCountry(profileData.country ?? "");
+                          setFavoritePosition(profileData.favoritePosition ?? "");
+                        }}>Cancel</Button>
                       </div>
                     </form>
                   ) : (
                     <>
                       <p className="text-card-foreground whitespace-pre-wrap min-h-[40px] bg-input p-3 rounded-md mb-2">{profileData.bio || <span className="text-muted-foreground italic">{viewingOwnProfile ? "No bio yet. Share your philosophy!" : "This egoist prefers actions over words."}</span>}</p>
-                      <p className="text-card-foreground bg-input p-3 rounded-md">Country: {profileData.country || <span className="text-muted-foreground italic">{viewingOwnProfile ? "Not set" : "Not specified"}</span>}</p>
+                      <p className="text-card-foreground bg-input p-3 rounded-md mb-2">Country: {profileData.country || <span className="text-muted-foreground italic">{viewingOwnProfile ? "Not set" : "Not specified"}</span>}</p>
+                      <p className="text-card-foreground bg-input p-3 rounded-md capitalize">Favorite Position: {profileData.favoritePosition || <span className="text-muted-foreground italic">{viewingOwnProfile ? "Not set" : "Not specified"}</span>}</p>
                       {viewingOwnProfile && <Button variant="ghost" onClick={() => setIsEditingBio(true)} className="text-sm mt-1 text-accent">Edit Details</Button>}
                     </>
                   )}
