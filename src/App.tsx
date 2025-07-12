@@ -92,6 +92,13 @@ function CreateMatchForm({ onClose }: { onClose: () => void }) {
   const [partyName, setPartyName] = useState("");
   const [description, setDescription] = useState("");
   const [locationAvailable, setLocationAvailable] = useState(true);
+
+  // Venue Details State
+  const [venueName, setVenueName] = useState("");
+  const [address, setAddress] = useState("");
+  const [pitchType, setPitchType] = useState(""); // Empty string for default "Select" option
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+
   const createMatch = useMutation(api.matches.createMatch);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -116,9 +123,13 @@ function CreateMatchForm({ onClose }: { onClose: () => void }) {
         location,
         dateTime: matchDateTime,
         playersNeeded: Number(playersNeeded),
-        partyName,
-        description,
+        partyName: partyName.trim() === "" ? undefined : partyName.trim(),
+        description: description.trim() === "" ? undefined : description.trim(),
         locationAvailable,
+        venueName: venueName.trim() === "" ? undefined : venueName.trim(),
+        address: address.trim() === "" ? undefined : address.trim(),
+        pitchType: pitchType === "" ? undefined : pitchType as any, // Cast as any to satisfy specific literal union
+        amenities: selectedAmenities.length > 0 ? selectedAmenities : undefined,
       });
       toast.success("Match created successfully!");
       onClose();
@@ -161,6 +172,54 @@ function CreateMatchForm({ onClose }: { onClose: () => void }) {
       </div>
 
       <InputField label="Party Name (Optional)" value={partyName} onChange={(e) => setPartyName(e.target.value)} placeholder="e.g., 'Elite Strikers', 'Weekend Warriors'" />
+
+      {/* Venue Details Inputs */}
+      <div className="border-t border-border pt-4 mt-4">
+        <h3 className="text-lg font-medium text-text-accent mb-2">Venue Details (Optional)</h3>
+        <InputField label="Venue Name" value={venueName} onChange={(e) => setVenueName(e.target.value)} placeholder="e.g., Central Park - Pitch 2" />
+        <TextareaField label="Address / Directions" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="e.g., 123 Main St, near the big oak tree" />
+
+        <div>
+          <label htmlFor="pitchType" className="block text-sm font-medium text-muted-foreground mb-1">Pitch Type</label>
+          <select
+            id="pitchType"
+            value={pitchType}
+            onChange={(e) => setPitchType(e.target.value)}
+            className="w-full px-3 py-2 rounded border bg-input border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-shadow shadow-sm hover:shadow-md text-card-foreground"
+          >
+            <option value="">Select Pitch Type</option>
+            <option value="grass">Grass</option>
+            <option value="artificial_turf">Artificial Turf</option>
+            <option value="indoor_court">Indoor Court</option>
+            <option value="dirt">Dirt</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-muted-foreground mb-1">Amenities</label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {["Parking", "Restrooms", "Lights", "Water Fountain", "Covered Area", "Benches"].map(amenity => (
+              <label key={amenity} className="flex items-center space-x-2 p-2 rounded-md bg-input border border-border hover:bg-muted cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedAmenities.includes(amenity)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedAmenities(prev => [...prev, amenity]);
+                    } else {
+                      setSelectedAmenities(prev => prev.filter(a => a !== amenity));
+                    }
+                  }}
+                  className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
+                />
+                <span className="text-sm text-card-foreground">{amenity}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <TextareaField label="Description (Optional)" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Any extra details, e.g., 'Bring water!'" />
       <div className="flex items-center">
         <input type="checkbox" id="locationAvailable" checked={locationAvailable} onChange={(e) => setLocationAvailable(e.target.checked)} className="mr-2 h-4 w-4 text-primary focus:ring-primary border-border rounded" />
@@ -434,7 +493,9 @@ function MatchCard({ match, currentUserId, onUserClick }: { match: Doc<"matches"
           </div>
         </div>
         {/* <p className="text-card-foreground"><span className="font-semibold text-text-cyan-accent">Sport:</span> {match.sport}</p> Removed for football-only focus */}
-        <p className="text-card-foreground"><span className="font-semibold text-text-cyan-accent">Location:</span> {match.location}</p>
+        <p className="text-card-foreground">
+          <span className="font-semibold text-text-cyan-accent">Where:</span> {match.venueName ? `${match.venueName} (${match.location})` : match.location}
+        </p>
         <p className="text-card-foreground"><span className="font-semibold text-text-cyan-accent">When:</span> {new Date(match.dateTime).toLocaleString()}</p>
         
         {/* Team composition display */}
@@ -678,12 +739,23 @@ function MatchCard({ match, currentUserId, onUserClick }: { match: Doc<"matches"
                 </div>
             </div>
             {/* <p className="text-card-foreground"><strong>Sport:</strong> {matchDetails.sport}</p> Removed for football-only focus */}
-            <p className="text-card-foreground"><strong>Location:</strong> {matchDetails.location}</p>
+            <p className="text-card-foreground"><strong>General Location:</strong> {matchDetails.location}</p>
+            {matchDetails.venueName && <p className="text-card-foreground"><strong>Venue:</strong> {matchDetails.venueName}</p>}
+            {matchDetails.address && <p className="text-card-foreground"><strong>Address:</strong> {matchDetails.address}</p>}
             <p className="text-card-foreground"><strong>Date:</strong> {new Date(matchDetails.dateTime).toLocaleString()}</p>
             <p className="text-card-foreground"><strong>Format:</strong> {maxPerTeam} vs {maxPerTeam} (Team A vs Team B)</p>
             <p className="text-card-foreground"><strong>Egoists:</strong> <span className="text-text-yellow-accent">{matchDetails.participantCount}</span> / {matchDetails.playersNeeded}</p>
             <p className="text-card-foreground"><strong>Status:</strong> <span className={ matchDetails.status === 'open' ? 'text-success' : matchDetails.status === 'full' ? 'text-info' : matchDetails.status === 'cancelled' ? 'text-destructive' : matchDetails.status === 'completed' ? 'text-muted-foreground' : 'text-warning'}>{matchDetails.status.charAt(0).toUpperCase() + matchDetails.status.slice(1)}</span></p>
-            {matchDetails.description && <p className="text-card-foreground"><strong>Description:</strong> {matchDetails.description}</p>}
+            {matchDetails.pitchType && <p className="text-card-foreground capitalize"><strong>Pitch Type:</strong> {matchDetails.pitchType.replace("_", " ")}</p>}
+            {matchDetails.amenities && matchDetails.amenities.length > 0 && (
+              <div>
+                <p className="text-card-foreground font-semibold">Amenities:</p>
+                <ul className="list-disc list-inside pl-2 text-sm text-muted-foreground">
+                  {matchDetails.amenities.map((amenity: string) => <li key={amenity}>{amenity}</li>)}
+                </ul>
+              </div>
+            )}
+            {matchDetails.description && <p className="text-card-foreground mt-2"><strong>Description:</strong> {matchDetails.description}</p>}
             
             {/* Team compositions */}
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
