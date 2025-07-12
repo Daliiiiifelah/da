@@ -157,23 +157,7 @@ export const getPlayersToRate = query({
 // getPlayerPositionalRatings query removed as it relied on the old 'stars' system.
 // Positional performance might be reintroduced later based on aggregated attribute ratings if needed.
 
-export const getPlayerSuggestions = query({
-    args: { userId: v.id("users") },
-    handler: async (ctx, args) => {
-        const ratingsWithSuggestions = await ctx.db
-            .query("playerRatings")
-            .withIndex("by_ratedUser", q => q.eq("ratedUserId", args.userId))
-            .filter(q => q.neq(q.field("suggestion"), undefined) && q.neq(q.field("suggestion"), null) && q.neq(q.field("suggestion"), ""))
-            .collect();
-        
-        // Note: r.stars is no longer available on playerRatings.
-        // If starsGiven was important context for a suggestion, this query needs further rethinking.
-        // For now, just returning suggestions without the star context.
-        return ratingsWithSuggestions.map(r => ({
-            suggestion: r.suggestion!,
-            matchId: r.matchId,
-            raterUserId: r.raterUserId, 
-            // starsGiven: r.stars, // This field is no longer available
-        }));
-    }
-});
+// getPlayerSuggestions query removed as its primary context (starsGiven) was removed
+// and the UI for displaying suggestions was also removed from UserProfileModal.
+// If suggestions are reintroduced, this query will need to be re-evaluated
+// based on the new attribute rating system.
