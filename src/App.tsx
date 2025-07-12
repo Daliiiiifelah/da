@@ -7,6 +7,7 @@ import { UserSearchModal } from "./UserSearchModal";
 import { NotificationsModal } from "./NotificationsModal";
 import { PartyChatModal } from "./PartyChatModal";
 import { PartySearchModal } from "./PartySearchModal";
+import { LeaderboardModal } from "./LeaderboardModal"; // Import LeaderboardModal
 import { Toaster, toast } from "sonner";
 import React, { useState, useEffect, useMemo, FormEvent } from "react";
 import { Doc, Id } from "../convex/_generated/dataModel";
@@ -800,6 +801,7 @@ export default function App() {
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [showPartySearchModal, setShowPartySearchModal] = useState(false);
   const [partySearchTerm, setPartySearchTerm] = useState("");
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false); // State for Leaderboard Modal
   
   const loggedInUser = useQuery(api.auth.loggedInUser);
   const partySearchResults = useQuery(api.matches.searchParties, partySearchTerm.trim() ? { searchTerm: partySearchTerm.trim() } : "skip"); 
@@ -852,6 +854,15 @@ export default function App() {
               title="Search Parties"
             >
               🎉
+            </button>
+
+            {/* Leaderboard Icon */}
+            <button
+              onClick={() => setShowLeaderboardModal(true)}
+              className="relative p-2 hover:bg-muted rounded-md transition-colors"
+              title="Leaderboard"
+            >
+              🏆
             </button>
 
             <button 
@@ -940,6 +951,12 @@ export default function App() {
         searchTerm={partySearchTerm}
         onSearchTermChange={setPartySearchTerm}
         searchResults={partySearchResults}
+      />
+
+      <LeaderboardModal
+        isOpen={showLeaderboardModal}
+        onClose={() => setShowLeaderboardModal(false)}
+        onNavigateToProfile={handleUserClick} // Use existing handleUserClick for navigation
       />
       
       <Toaster position="top-right" richColors theme="dark" />
