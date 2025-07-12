@@ -723,7 +723,7 @@ function MatchCard({ match, currentUserId, onUserClick }: { match: Doc<"matches"
 
 function ParticipantItem({ userId, initialName, position, onUserClick, team }: { userId: Id<"users">, initialName: string, position: string, onUserClick: (userId: Id<"users">) => void; team?: "A" | "B" }) {
   const userPublicProfile = useQuery(api.userProfiles.getUserPublicProfile, { userId });
-  const averageRating = useQuery(api.ratings.getPlayerAverageRating, { userId });
+  // const averageRating = useQuery(api.ratings.getPlayerAverageRating, { userId }); // Removed
   const displayName = userPublicProfile?.displayName ?? userPublicProfile?.name ?? initialName;
   const displayImage = userPublicProfile?.profileImageUrl;
 
@@ -736,9 +736,7 @@ function ParticipantItem({ userId, initialName, position, onUserClick, team }: {
       <div>
         <span className="font-medium text-text-blue-accent cursor-pointer hover:underline" onClick={() => onUserClick(userId)}>{displayName}</span> 
         <span className="text-sm text-muted-foreground">({position})</span>
-        {averageRating && averageRating.count > 0 && (
-          <span className="ml-2 text-xs text-text-yellow-accent"> (Avg: {averageRating.average?.toFixed(1)}&#9733; / {averageRating.count} ratings)</span>
-        )}
+        {/* Average rating display removed, overallScore from userPublicProfile can be used if needed elsewhere */}
       </div>
     </li>
   );

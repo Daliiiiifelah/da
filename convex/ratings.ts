@@ -151,76 +151,11 @@ export const getPlayersToRate = query({
   },
 });
 
-export const getPlayerAverageRating = query({
-  args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    const ratings = await ctx.db
-      .query("playerRatings")
-      .withIndex("by_ratedUser", (q) => q.eq("ratedUserId", args.userId))
-      .collect();
+// getPlayerAverageRating query removed as it relied on the old 'stars' system.
+// The new 'overallScore' in userProfiles serves a similar purpose based on aggregated attribute ratings.
 
-    if (ratings.length === 0) {
-      return { average: null, count: 0, byPosition: {} };
-    }
-
-    const totalStars = ratings.reduce((sum, r) => sum + r.stars, 0);
-    const average = parseFloat((totalStars / ratings.length).toFixed(1));
-    
-    return {
-      average,
-      count: ratings.length,
-    };
-  },
-});
-
-export const getPlayerPositionalRatings = query({
-  args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    const allUserParticipations = await ctx.db
-      .query("participants")
-      .withIndex("by_userId", q => q.eq("userId", args.userId))
-      .collect();
-
-    const allUserRatingsReceived = await ctx.db
-      .query("playerRatings")
-      .withIndex("by_ratedUser", q => q.eq("ratedUserId", args.userId))
-      .collect();
-
-    if (allUserRatingsReceived.length === 0) {
-      return [];
-    }
-
-    const ratingsByPosition: Record<string, { totalStars: number; count: number; matchIds: Set<Id<"matches">> }> = {};
-
-    for (const rating of allUserRatingsReceived) {
-      // Find the participation record for this match to get the position played
-      const participationInRatedMatch = allUserParticipations.find(p => p.matchId === rating.matchId);
-      
-      if (participationInRatedMatch) {
-        const position = participationInRatedMatch.position;
-        if (!ratingsByPosition[position]) {
-          ratingsByPosition[position] = { totalStars: 0, count: 0, matchIds: new Set() };
-        }
-        // Ensure a user's rating for a specific match (and thus position) is only counted once per rater,
-        // which is implicitly handled by how ratings are stored (one rating per rater-ratedUser-match).
-        // The overall average per position will be sum of stars for that position / number of ratings for that position.
-        ratingsByPosition[position].totalStars += rating.stars;
-        ratingsByPosition[position].count += 1;
-        ratingsByPosition[position].matchIds.add(rating.matchId);
-      }
-    }
-    
-    const result = Object.entries(ratingsByPosition).map(([position, data]) => ({
-      position,
-      averageStars: parseFloat((data.totalStars / data.count).toFixed(1)),
-      ratingCount: data.count,
-      matchCount: data.matchIds.size, // Number of distinct matches played in this position that received ratings
-    }));
-
-    return result.sort((a,b) => b.ratingCount - a.ratingCount); // Sort by most rated position
-  }
-});
-
+// getPlayerPositionalRatings query removed as it relied on the old 'stars' system.
+// Positional performance might be reintroduced later based on aggregated attribute ratings if needed.
 
 export const getPlayerSuggestions = query({
     args: { userId: v.id("users") },
@@ -231,11 +166,14 @@ export const getPlayerSuggestions = query({
             .filter(q => q.neq(q.field("suggestion"), undefined) && q.neq(q.field("suggestion"), null) && q.neq(q.field("suggestion"), ""))
             .collect();
         
+        // Note: r.stars is no longer available on playerRatings.
+        // If starsGiven was important context for a suggestion, this query needs further rethinking.
+        // For now, just returning suggestions without the star context.
         return ratingsWithSuggestions.map(r => ({
             suggestion: r.suggestion!,
             matchId: r.matchId,
             raterUserId: r.raterUserId, 
-            starsGiven: r.stars,
+            // starsGiven: r.stars, // This field is no longer available
         }));
     }
 });

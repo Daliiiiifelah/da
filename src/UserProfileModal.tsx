@@ -93,16 +93,15 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
       const [showReportModal, setShowReportModal] = useState(false);
       const [showInviteModal, setShowInviteModal] = useState(false);
 
-      // State for Hexagon Stats Editing
-      const [isEditingStats, setIsEditingStats] = useState(false);
-      const [speed, setSpeed] = useState<string | number>("");
-      const [durability, setDurability] = useState<string | number>("");
-      const [defense, setDefense] = useState<string | number>("");
-      const [offense, setOffense] = useState<string | number>("");
-      const [passing, setPassing] = useState<string | number>("");
-      const [shooting, setShooting] = useState<string | number>("");
-      const [dribbling, setDribbling] = useState<string | number>("");
-
+      // State for Hexagon Stats Editing - REMOVED as stats are now peer-aggregated
+      // const [isEditingStats, setIsEditingStats] = useState(false);
+      // const [speed, setSpeed] = useState<string | number>("");
+      // const [durability, setDurability] = useState<string | number>(""); // Was already removed from schema
+      // const [defense, setDefense] = useState<string | number>("");
+      // const [offense, setOffense] = useState<string | number>("");
+      // const [passing, setPassing] = useState<string | number>("");
+      // const [shooting, setShooting] = useState<string | number>("");
+      // const [dribbling, setDribbling] = useState<string | number>("");
 
       const generateUploadUrl = useMutation(api.userProfiles.generateProfilePictureUploadUrl);
       const saveProfilePicture = useMutation(api.userProfiles.saveProfilePicture);
@@ -110,9 +109,9 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
       const updateDisplayNameMutation = useMutation(api.userProfiles.updateDisplayName);
       const updateUserProfileMutation = useMutation(api.userProfiles.updateUserProfile); // Added for all profile fields including stats
       
-      const playerAverageRating = useQuery(api.ratings.getPlayerAverageRating, userId ? { userId } : "skip");
-      const playerSuggestions = useQuery(api.ratings.getPlayerSuggestions, userId ? { userId } : "skip");
-      const positionalRatings = useQuery(api.ratings.getPlayerPositionalRatings, userId ? { userId } : "skip");
+      // const playerAverageRating = useQuery(api.ratings.getPlayerAverageRating, userId ? { userId } : "skip"); // Removed
+      // const playerSuggestions = useQuery(api.ratings.getPlayerSuggestions, userId ? { userId } : "skip"); // Removed
+      // const positionalRatings = useQuery(api.ratings.getPlayerPositionalRatings, userId ? { userId } : "skip"); // Removed
       
       // Get my created matches for inviting friends
       const myCreatedMatches = useQuery(api.matches.getMyCreatedMatches, loggedInUser && !viewingOwnProfile ? {} : "skip");
@@ -124,19 +123,18 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
           setBio(userProfileToView.bio ?? "");
           setDisplayName(userProfileToView.displayName ?? userProfileToView.name ?? "");
           setCountry(userProfileToView.country ?? ""); // Initialize country
-          // Initialize hexagon stats
-          setSpeed(userProfileToView.speed?.toString() ?? "");
-          // setDurability(userProfileToView.durability?.toString() ?? ""); // Durability removed
-          setDefense(userProfileToView.defense?.toString() ?? "");
-          setOffense(userProfileToView.offense?.toString() ?? "");
-          setPassing(userProfileToView.passing?.toString() ?? "");
-          setShooting(userProfileToView.shooting?.toString() ?? "");
-          setDribbling(userProfileToView.dribbling?.toString() ?? "");
+          // Hexagon stats are now peer-aggregated, no longer need to initialize for direct editing here
+          // setSpeed(userProfileToView.speed?.toString() ?? "");
+          // setDefense(userProfileToView.defense?.toString() ?? "");
+          // setOffense(userProfileToView.offense?.toString() ?? "");
+          // setPassing(userProfileToView.passing?.toString() ?? "");
+          // setShooting(userProfileToView.shooting?.toString() ?? "");
+          // setDribbling(userProfileToView.dribbling?.toString() ?? "");
         }
         if (!viewingOwnProfile) {
           setIsEditingBio(false);
           setIsEditingDisplayName(false);
-          setIsEditingStats(false); // Ensure stats editing is off when not own profile
+          // setIsEditingStats(false); // State removed
         }
       }, [userProfileToView, viewingOwnProfile]);
 
@@ -165,36 +163,7 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
       const handleBlockUser = async () => { if (!userId || viewingOwnProfile) return; if (window.confirm(`Are you sure you want to block ${userProfileToView?.name || 'this user'}? You will no longer be friends and cannot interact.`)) { try { await blockUserMutation({ blockedId: userId }); toast.success("User blocked."); } catch (error) { toast.error(getErrorMessage(error)); } } };
       const handleUnblockUser = async (userToUnblockId: Id<"users">) => { if (!userToUnblockId) return; try { await unblockUserMutation({ blockedId: userToUnblockId }); toast.success("User unblocked."); } catch (error) { toast.error(getErrorMessage(error)); } };
 
-      const handleSaveStats = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!viewingOwnProfile) return;
-
-        const statsData = {
-          speed: speed === "" ? undefined : Number(speed),
-          durability: durability === "" ? undefined : Number(durability),
-          defense: defense === "" ? undefined : Number(defense),
-          offense: offense === "" ? undefined : Number(offense),
-          passing: passing === "" ? undefined : Number(passing),
-          shooting: shooting === "" ? undefined : Number(shooting),
-          dribbling: dribbling === "" ? undefined : Number(dribbling),
-        };
-
-        // Basic frontend validation for range, though backend enforces it too
-        for (const [key, value] of Object.entries(statsData)) {
-          if (value !== undefined && (value < 0 || value > 100)) {
-            toast.error(`${key.charAt(0).toUpperCase() + key.slice(1)} stat must be between 0 and 100.`);
-            return;
-          }
-        }
-
-        try {
-          await updateUserProfileMutation(statsData);
-          toast.success("Egoist Stats updated!");
-          setIsEditingStats(false);
-        } catch (error) {
-          toast.error(`Failed to update stats: ${getErrorMessage(error)}`);
-        }
-      };
+      // handleSaveStats function REMOVED as stats are peer-aggregated
 
       const handleInviteToParty = async (matchId: Id<"matches">, message?: string) => {
         if (!userId) return;
@@ -279,63 +248,49 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
                     </>
                   )}
                 </div>
+                {/*
+                  The section below previously displayed:
+                  - Overall Average Rating (from getPlayerAverageRating)
+                  - Performance by Position (from getPlayerPositionalRatings)
+                  - Recent Feedback (from getPlayerSuggestions)
+                  These have been removed as the rating system changed.
+                  Overall skill is now better represented by userProfileToView.overallScore
+                  and the detailed hexagon stats. Suggestions might be reintroduced later if desired.
+                */}
                 <div>
-                  <h5 className="text-xl font-semibold text-text-green-accent mb-2 border-b border-border pb-1">Egoist Stats</h5>
-                  {playerAverageRating === undefined && <p className="text-muted-foreground">Loading ratings...</p>}
-                  {playerAverageRating && ( <p className="text-card-foreground mb-3"> Overall Average Rating: {playerAverageRating.count > 0 ? <> <span className="font-bold text-text-yellow-accent text-lg">{playerAverageRating.average?.toFixed(1)}&#9733;</span> <span className="text-sm text-muted-foreground"> (from {playerAverageRating.count} ratings)</span></> : <span className="text-info">No ratings yet.</span>} </p> )}
-                  {positionalRatings === undefined && <p className="text-muted-foreground">Loading positional performance...</p>}
-                  {positionalRatings && positionalRatings.length > 0 && ( <div> <h6 className="font-medium text-text-blue-accent mb-1">Performance by Position:</h6> <div className="grid grid-cols-1 sm:grid-cols-2 gap-3"> {positionalRatings.map(posRating => ( <div key={posRating.position} className="bg-input p-3 rounded-md shadow-sm"> <span className="font-semibold text-primary">{posRating.position}:</span> <span className="text-text-yellow-accent">{posRating.averageStars.toFixed(1)}&#9733;</span> <span className="text-xs text-muted-foreground"> ({posRating.ratingCount} ratings in {posRating.matchCount} matches)</span> </div> ))} </div> </div> )}
-                  {playerSuggestions === undefined && <p className="mt-3 text-muted-foreground">Loading suggestions...</p>}
-                  {playerSuggestions && playerSuggestions.length > 0 && ( <div className="mt-4"> <h6 className="font-medium text-text-purple-accent">Recent Feedback:</h6> <ul className="list-disc pl-5 text-sm text-muted-foreground max-h-32 overflow-y-auto bg-input p-3 rounded-md"> {playerSuggestions.slice(0, 5).map((s, idx) => ( <li key={idx} className="truncate text-card-foreground" title={s.suggestion}>"{s.suggestion}" (from a <span className="text-text-yellow-accent">{s.starsGiven}-star</span> review)</li> ))} {playerSuggestions.length > 5 && <li>...and {playerSuggestions.length - 5} more.</li>} </ul> </div> )}
+                  <h5 className="text-xl font-semibold text-text-green-accent mb-2 border-b border-border pb-1">Player Overview</h5>
+                  {/* Display overallScore and ratingsCount from userProfileToView */}
+                  {userProfileToView && userProfileToView.overallScore !== null && userProfileToView.ratingsCount !== null && userProfileToView.ratingsCount > 0 ? (
+                     <p className="text-card-foreground mb-1">
+                       Overall Score: <span className="font-bold text-text-yellow-accent text-lg">{userProfileToView.overallScore.toFixed(0)}</span>
+                       <span className="text-sm text-muted-foreground"> (from {userProfileToView.ratingsCount} rating submissions)</span>
+                     </p>
+                  ) : userProfileToView && (userProfileToView.ratingsCount === 0 || userProfileToView.ratingsCount === null) ? (
+                    <p className="text-info">No ratings submitted yet to calculate an overall score.</p>
+                  ) : (
+                    <p className="text-muted-foreground">Loading overall score...</p>
+                  )}
+                  {/* Placeholder for where suggestions might go if re-added */}
                 </div>
+
 
                 {/* Hexagon Stats Section */}
                 <div className="mt-6">
                   <h5 className="text-xl font-semibold text-text-orange-accent mb-2 border-b border-border pb-1">
                     {viewingOwnProfile ? "My Football Attributes" : "Football Attributes"}
                   </h5>
-                  {!isEditingStats || !viewingOwnProfile ? ( // Show hexagon if not editing OR if not viewing own profile
-                    <>
-                      <StatHexagon
-                        speed={profileData.speed}
-                        durability={profileData.durability}
-                        defense={profileData.defense}
-                        offense={profileData.offense}
-                        passing={profileData.passing}
-                        shooting={profileData.shooting}
-                        dribbling={profileData.dribbling}
-                      />
-                      {viewingOwnProfile && <Button onClick={() => setIsEditingStats(true)} variant="ghost" className="text-sm mt-2 text-accent">Edit Attributes</Button>}
-                    </>
-                  ) : ( // This block is only reachable if viewingOwnProfile is true AND isEditingStats is true
-                    <form onSubmit={handleSaveStats} className="space-y-3 p-3 bg-input rounded-md">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0">
-                          <InputField label="Speed (0-100)" type="number" value={speed} onChange={(e) => setSpeed(e.target.value)} placeholder="0-100" />
-                          <InputField label="Durability (0-100)" type="number" value={durability} onChange={(e) => setDurability(e.target.value)} placeholder="0-100" />
-                          <InputField label="Defense (0-100)" type="number" value={defense} onChange={(e) => setDefense(e.target.value)} placeholder="0-100" />
-                          <InputField label="Offense (0-100)" type="number" value={offense} onChange={(e) => setOffense(e.target.value)} placeholder="0-100" />
-                          <InputField label="Passing (0-100)" type="number" value={passing} onChange={(e) => setPassing(e.target.value)} placeholder="0-100" />
-                          <InputField label="Shooting (0-100)" type="number" value={shooting} onChange={(e) => setShooting(e.target.value)} placeholder="0-100" />
-                          <InputField label="Dribbling (0-100)" type="number" value={dribbling} onChange={(e) => setDribbling(e.target.value)} placeholder="0-100" />
-                        </div>
-                        <div className="flex gap-2 pt-2">
-                          <Button type="submit">Save Attributes</Button>
-                          <Button type="button" variant="secondary" onClick={() => {
-                            setIsEditingStats(false);
-                            // Reset fields to profile data
-                            setSpeed(profileData.speed?.toString() ?? "");
-                            setDurability(profileData.durability?.toString() ?? "");
-                            setDefense(profileData.defense?.toString() ?? "");
-                            setOffense(profileData.offense?.toString() ?? "");
-                            setPassing(profileData.passing?.toString() ?? "");
-                            setShooting(profileData.shooting?.toString() ?? "");
-                            setDribbling(profileData.dribbling?.toString() ?? "");
-                          }}>Cancel</Button>
-                        </div>
-                      </form>
-                    )}
-                  </div>
-                )}
+                  {/* Hexagon stats are now display-only, populated by peer aggregation */}
+                  <StatHexagon
+                    speed={profileData.speed}
+                    // durability={profileData.durability} // Durability removed
+                    defense={profileData.defense}
+                    offense={profileData.offense}
+                    passing={profileData.passing}
+                    shooting={profileData.shooting}
+                    dribbling={profileData.dribbling}
+                  />
+                  {/* Self-editing UI for stats removed */}
+                </div>
               </>)}
 
               {viewingOwnProfile && ( <>
