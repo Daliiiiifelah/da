@@ -24,6 +24,12 @@ const applicationTables = {
       v.literal("other")
     )),
     amenities: v.optional(v.array(v.string())),
+    skillLevel: v.optional(v.union(
+      v.literal("beginner"),
+      v.literal("intermediate"),
+      v.literal("advanced"),
+      v.literal("open_to_all")
+    )),
   })
     .index("by_creatorId_and_dateTime", ["creatorId", "dateTime"])
     .index("by_status_and_dateTime", ["status", "dateTime"])

@@ -36,6 +36,12 @@ export const createMatch = mutation({
       v.literal("other")
     )),
     amenities: v.optional(v.array(v.string())),
+    skillLevel: v.optional(v.union(
+      v.literal("beginner"),
+      v.literal("intermediate"),
+      v.literal("advanced"),
+      v.literal("open_to_all")
+    )),
   },
   handler: async (ctx, args) => {
     const user = await getLoggedInUserOrThrow(ctx);
@@ -82,6 +88,7 @@ export const createMatch = mutation({
       address: args.address,
       pitchType: args.pitchType,
       amenities: args.amenities,
+      skillLevel: args.skillLevel ?? "open_to_all", // Default to "open_to_all" if not provided
     });
     return matchId;
   },
@@ -130,16 +137,88 @@ export const searchParties = query({
 });
 
 export const listOpenMatches = query({
-  args: {},
-  handler: async (ctx) => {
-    const matches = await ctx.db
+  args: {
+    filterSkillLevel: v.optional(v.union(
+      v.literal("beginner"),
+      v.literal("intermediate"),
+      v.literal("advanced"),
+      v.literal("open_to_all")
+    ))
+  },
+  handler: async (ctx, args) => {
+    let query = ctx.db
       .query("matches")
       .withIndex("by_status_and_dateTime", (q) => q.eq("status", "open"))
-      .order("asc") // Show soonest matches first
-      .collect();
+      .order("asc"); // Show soonest matches first
 
-    return Promise.all(
-      matches.map(async (match) => {
+    // If a skill level filter is provided, apply it.
+    // Users see matches matching their filter OR matches open to all.
+    // If no filter, they see all open matches (including those with specific skill levels).
+    if (args.filterSkillLevel && args.filterSkillLevel !== "open_to_all") {
+      // This logic is a bit tricky with Convex's OR support within a single filter.
+      // A simpler approach for now if direct OR on different fields isn't easy:
+      // Fetch all 'open' matches and filter in application code.
+      // Or, ensure 'open_to_all' is a default and filter for that OR the specific level.
+      // Let's try to build a more complex filter if possible, otherwise fallback.
+      // For now, let's keep it simple: if a specific skill level is chosen, only show that.
+      // "Open to all" will be handled by the frontend not passing a filter.
+      // This means if a user selects "beginner", they won't see "open_to_all" matches.
+      // This might need refinement based on desired UX.
+      // A better UX: if user filters for "beginner", they see "beginner" AND "open_to_all".
+
+      // Fetching all and filtering in code for complex OR:
+      const allOpenMatches = await query.collect();
+      const filteredMatches = allOpenMatches.filter(match =>
+        match.skillLevel === args.filterSkillLevel || match.skillLevel === "open_to_all" || !match.skillLevel // Treat null/undefined skillLevel as "open_to_all"
+      );
+      const matches = filteredMatches; // Use the filtered list
+
+      // If direct OR was possible, it might look like:
+      // query = query.filter(q =>
+      //  q.or(
+      //    q.eq(q.field("skillLevel"), args.filterSkillLevel),
+      //    q.eq(q.field("skillLevel"), "open_to_all"),
+      //    q.eq(q.field("skillLevel"), null) // Assuming null means open to all
+      //  )
+      // );
+      // For now, the above in-code filter is safer.
+       return Promise.all(
+        matches.map(async (match) => {
+          const participants = await ctx.db
+            .query("participants")
+            .withIndex("by_matchId", (q) => q.eq("matchId", match._id))
+            .collect();
+          return {
+            ...match,
+            participantCount: participants.length,
+            participants, // Include participants for UI
+          };
+        })
+      );
+    } else {
+      // No specific skill filter, or "open_to_all" was implicitly selected by not passing a filter.
+      // Fetch all open matches.
+      const matches = await query.collect();
+      return Promise.all(
+        matches.map(async (match) => {
+          const participants = await ctx.db
+            .query("participants")
+            .withIndex("by_matchId", (q) => q.eq("matchId", match._id))
+            .collect();
+          return {
+            ...match,
+            participantCount: participants.length,
+            participants, // Include participants for UI
+          };
+        })
+      );
+    }
+  },
+});
+
+export const getMatchDetails = query({
+  args: { matchId: v.id("matches") },
+  handler: async (ctx, args) => {
         const participants = await ctx.db
           .query("participants")
           .withIndex("by_matchId", (q) => q.eq("matchId", match._id))
