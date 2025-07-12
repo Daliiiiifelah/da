@@ -1,14 +1,32 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api'; // Adjusted path assuming components is one level down from src
+import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
+
+// Define FOOTBALL_POSITIONS, ensure it matches schema and other usages
+const FOOTBALL_POSITIONS = ["goalkeeper", "defender", "midfielder", "forward"] as const;
+type FootballPosition = typeof FOOTBALL_POSITIONS[number];
 
 interface LeaderboardPageProps {
   onNavigateToProfile: (userId: Id<"users">) => void;
 }
 
 const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ onNavigateToProfile }) => {
-  const leaderboardData = useQuery(api.leaderboards.getOverallWorldwideLeaderboard, { limit: 20 });
+  const [selectedPosition, setSelectedPosition] = useState<FootballPosition | null>(null);
+
+  const queryArgs = selectedPosition
+    ? { limit: 20, position: selectedPosition }
+    : { limit: 20 };
+  const leaderboardData = useQuery(api.leaderboards.getOverallWorldwideLeaderboard, queryArgs);
+
+  const handlePositionFilterChange = (position: FootballPosition | null) => {
+    setSelectedPosition(position);
+  };
+
+  const getTitle = () => {
+    if (!selectedPosition) return "Top 20 Overall Egoists Worldwide";
+    return `Top 20 ${selectedPosition.charAt(0).toUpperCase() + selectedPosition.slice(1)}s Worldwide`;
+  };
 
   if (leaderboardData === undefined) {
     return <div className="text-center py-8 text-muted-foreground">Loading leaderboard... <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mt-2"></div></div>;
@@ -24,7 +42,28 @@ const LeaderboardPage: React.FC<LeaderboardPageProps> = ({ onNavigateToProfile }
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-primary text-center mb-6">Top 20 Worldwide Egoists</h2>
+      <h2 className="text-2xl font-bold text-primary text-center mb-4">{getTitle()}</h2>
+
+      <div className="mb-4 flex justify-center space-x-2 border-b border-border pb-2">
+        <button
+          onClick={() => handlePositionFilterChange(null)}
+          className={`px-4 py-1.5 text-sm rounded-md transition-colors font-medium
+            ${selectedPosition === null ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted hover:bg-muted/80 text-muted-foreground'}`}
+        >
+          Overall
+        </button>
+        {FOOTBALL_POSITIONS.map(pos => (
+          <button
+            key={pos}
+            onClick={() => handlePositionFilterChange(pos)}
+            className={`px-4 py-1.5 text-sm rounded-md transition-colors font-medium capitalize
+              ${selectedPosition === pos ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted hover:bg-muted/80 text-muted-foreground'}`}
+          >
+            {pos}s {/* Pluralize, e.g., Goalkeepers */}
+          </button>
+        ))}
+      </div>
+
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-border bg-card rounded-lg shadow-md">
           <thead className="bg-muted/50">
