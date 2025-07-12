@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
     import { Id, Doc } from '../convex/_generated/dataModel';
     import { Toaster, toast } from "sonner";
     import { ReportUserModal } from './ReportUserModal'; // Import ReportUserModal
+    import StatHexagon from '../components/StatHexagon'; // Import StatHexagon component
 
     // --- Reusable Components ---
     const Button = ({ onClick, children, className = "", disabled = false, variant = "primary", type, size }: { onClick?: () => void; children: React.ReactNode; className?: string; disabled?: boolean; variant?: "primary" | "secondary" | "danger" | "ghost" | "accent"; type?: "button" | "submit" | "reset", size?: "sm" | "md" }) => {
@@ -91,11 +92,22 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
       const [showReportModal, setShowReportModal] = useState(false);
       const [showInviteModal, setShowInviteModal] = useState(false);
 
+      // State for Hexagon Stats Editing
+      const [isEditingStats, setIsEditingStats] = useState(false);
+      const [speed, setSpeed] = useState<string | number>("");
+      const [durability, setDurability] = useState<string | number>("");
+      const [defense, setDefense] = useState<string | number>("");
+      const [offense, setOffense] = useState<string | number>("");
+      const [passing, setPassing] = useState<string | number>("");
+      const [shooting, setShooting] = useState<string | number>("");
+      const [dribbling, setDribbling] = useState<string | number>("");
+
 
       const generateUploadUrl = useMutation(api.userProfiles.generateProfilePictureUploadUrl);
       const saveProfilePicture = useMutation(api.userProfiles.saveProfilePicture);
       const updateBioMutation = useMutation(api.userProfiles.updateBio);
       const updateDisplayNameMutation = useMutation(api.userProfiles.updateDisplayName);
+      const updateUserProfileMutation = useMutation(api.userProfiles.updateUserProfile); // Added for all profile fields including stats
       
       const playerAverageRating = useQuery(api.ratings.getPlayerAverageRating, userId ? { userId } : "skip");
       const playerSuggestions = useQuery(api.ratings.getPlayerSuggestions, userId ? { userId } : "skip");
@@ -107,8 +119,23 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
       const sendPartyInvitationMutation = useMutation(api.partyInvitations.sendPartyInvitation);
 
       useEffect(() => {
-        if (userProfileToView) { setBio(userProfileToView.bio ?? ""); setDisplayName(userProfileToView.displayName ?? userProfileToView.name ?? ""); }
-        if (!viewingOwnProfile) { setIsEditingBio(false); setIsEditingDisplayName(false); }
+        if (userProfileToView) {
+          setBio(userProfileToView.bio ?? "");
+          setDisplayName(userProfileToView.displayName ?? userProfileToView.name ?? "");
+          // Initialize hexagon stats
+          setSpeed(userProfileToView.speed?.toString() ?? "");
+          setDurability(userProfileToView.durability?.toString() ?? "");
+          setDefense(userProfileToView.defense?.toString() ?? "");
+          setOffense(userProfileToView.offense?.toString() ?? "");
+          setPassing(userProfileToView.passing?.toString() ?? "");
+          setShooting(userProfileToView.shooting?.toString() ?? "");
+          setDribbling(userProfileToView.dribbling?.toString() ?? "");
+        }
+        if (!viewingOwnProfile) {
+          setIsEditingBio(false);
+          setIsEditingDisplayName(false);
+          setIsEditingStats(false); // Ensure stats editing is off when not own profile
+        }
       }, [userProfileToView, viewingOwnProfile]);
 
       const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => { if (!viewingOwnProfile) return; const file = event.target.files?.[0]; if (file) { setSelectedFile(file); await handleImageUpload(file); } };
@@ -123,6 +150,37 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
       
       const handleBlockUser = async () => { if (!userId || viewingOwnProfile) return; if (window.confirm(`Are you sure you want to block ${userProfileToView?.name || 'this user'}? You will no longer be friends and cannot interact.`)) { try { await blockUserMutation({ blockedId: userId }); toast.success("User blocked."); } catch (error) { toast.error(getErrorMessage(error)); } } };
       const handleUnblockUser = async (userToUnblockId: Id<"users">) => { if (!userToUnblockId) return; try { await unblockUserMutation({ blockedId: userToUnblockId }); toast.success("User unblocked."); } catch (error) { toast.error(getErrorMessage(error)); } };
+
+      const handleSaveStats = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!viewingOwnProfile) return;
+
+        const statsData = {
+          speed: speed === "" ? undefined : Number(speed),
+          durability: durability === "" ? undefined : Number(durability),
+          defense: defense === "" ? undefined : Number(defense),
+          offense: offense === "" ? undefined : Number(offense),
+          passing: passing === "" ? undefined : Number(passing),
+          shooting: shooting === "" ? undefined : Number(shooting),
+          dribbling: dribbling === "" ? undefined : Number(dribbling),
+        };
+
+        // Basic frontend validation for range, though backend enforces it too
+        for (const [key, value] of Object.entries(statsData)) {
+          if (value !== undefined && (value < 0 || value > 100)) {
+            toast.error(`${key.charAt(0).toUpperCase() + key.slice(1)} stat must be between 0 and 100.`);
+            return;
+          }
+        }
+
+        try {
+          await updateUserProfileMutation(statsData);
+          toast.success("Egoist Stats updated!");
+          setIsEditingStats(false);
+        } catch (error) {
+          toast.error(`Failed to update stats: ${getErrorMessage(error)}`);
+        }
+      };
 
       const handleInviteToParty = async (matchId: Id<"matches">, message?: string) => {
         if (!userId) return;
@@ -202,6 +260,54 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
                   {playerSuggestions === undefined && <p className="mt-3 text-muted-foreground">Loading suggestions...</p>}
                   {playerSuggestions && playerSuggestions.length > 0 && ( <div className="mt-4"> <h6 className="font-medium text-text-purple-accent">Recent Feedback:</h6> <ul className="list-disc pl-5 text-sm text-muted-foreground max-h-32 overflow-y-auto bg-input p-3 rounded-md"> {playerSuggestions.slice(0, 5).map((s, idx) => ( <li key={idx} className="truncate text-card-foreground" title={s.suggestion}>"{s.suggestion}" (from a <span className="text-text-yellow-accent">{s.starsGiven}-star</span> review)</li> ))} {playerSuggestions.length > 5 && <li>...and {playerSuggestions.length - 5} more.</li>} </ul> </div> )}
                 </div>
+
+                {/* Hexagon Stats Section */}
+                <div className="mt-6">
+                  <h5 className="text-xl font-semibold text-text-orange-accent mb-2 border-b border-border pb-1">
+                    {viewingOwnProfile ? "My Football Attributes" : "Football Attributes"}
+                  </h5>
+                  {!isEditingStats || !viewingOwnProfile ? ( // Show hexagon if not editing OR if not viewing own profile
+                    <>
+                      <StatHexagon
+                        speed={profileData.speed}
+                        durability={profileData.durability}
+                        defense={profileData.defense}
+                        offense={profileData.offense}
+                        passing={profileData.passing}
+                        shooting={profileData.shooting}
+                        dribbling={profileData.dribbling}
+                      />
+                      {viewingOwnProfile && <Button onClick={() => setIsEditingStats(true)} variant="ghost" className="text-sm mt-2 text-accent">Edit Attributes</Button>}
+                    </>
+                  ) : ( // This block is only reachable if viewingOwnProfile is true AND isEditingStats is true
+                    <form onSubmit={handleSaveStats} className="space-y-3 p-3 bg-input rounded-md">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0">
+                          <InputField label="Speed (0-100)" type="number" value={speed} onChange={(e) => setSpeed(e.target.value)} placeholder="0-100" />
+                          <InputField label="Durability (0-100)" type="number" value={durability} onChange={(e) => setDurability(e.target.value)} placeholder="0-100" />
+                          <InputField label="Defense (0-100)" type="number" value={defense} onChange={(e) => setDefense(e.target.value)} placeholder="0-100" />
+                          <InputField label="Offense (0-100)" type="number" value={offense} onChange={(e) => setOffense(e.target.value)} placeholder="0-100" />
+                          <InputField label="Passing (0-100)" type="number" value={passing} onChange={(e) => setPassing(e.target.value)} placeholder="0-100" />
+                          <InputField label="Shooting (0-100)" type="number" value={shooting} onChange={(e) => setShooting(e.target.value)} placeholder="0-100" />
+                          <InputField label="Dribbling (0-100)" type="number" value={dribbling} onChange={(e) => setDribbling(e.target.value)} placeholder="0-100" />
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <Button type="submit">Save Attributes</Button>
+                          <Button type="button" variant="secondary" onClick={() => {
+                            setIsEditingStats(false);
+                            // Reset fields to profile data
+                            setSpeed(profileData.speed?.toString() ?? "");
+                            setDurability(profileData.durability?.toString() ?? "");
+                            setDefense(profileData.defense?.toString() ?? "");
+                            setOffense(profileData.offense?.toString() ?? "");
+                            setPassing(profileData.passing?.toString() ?? "");
+                            setShooting(profileData.shooting?.toString() ?? "");
+                            setDribbling(profileData.dribbling?.toString() ?? "");
+                          }}>Cancel</Button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                )}
               </>)}
 
               {viewingOwnProfile && ( <>

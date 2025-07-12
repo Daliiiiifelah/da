@@ -44,8 +44,15 @@ const applicationTables = {
     matchId: v.id("matches"),
     raterUserId: v.id("users"),
     ratedUserId: v.id("users"),
-    stars: v.number(), 
-    suggestion: v.optional(v.string()), 
+    // stars: v.number(), // Removed: Replaced by attribute-specific ratings
+    suggestion: v.optional(v.string()),
+    // S-D grade given by the rater for each attribute
+    speedGiven: v.optional(v.union(v.literal("S"), v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"))),
+    defenseGiven: v.optional(v.union(v.literal("S"), v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"))),
+    offenseGiven: v.optional(v.union(v.literal("S"), v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"))),
+    shootingGiven: v.optional(v.union(v.literal("S"), v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"))),
+    dribblingGiven: v.optional(v.union(v.literal("S"), v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"))),
+    passingGiven: v.optional(v.union(v.literal("S"), v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"))),
   })
     .index("by_match_and_rater", ["matchId", "raterUserId"])
     .index("by_ratedUser", ["ratedUserId"])
@@ -61,12 +68,21 @@ const applicationTables = {
     favoritePosition: v.optional(v.string()),
     location: v.optional(v.string()),
     age: v.optional(v.number()),
-    skillLevel: v.optional(v.union(
-      v.literal("beginner"),
-      v.literal("intermediate"),
-      v.literal("advanced"),
-      v.literal("professional")
-    )),
+    // skillLevel: v.optional(v.union( // To be removed, replaced by aggregated hexagon stats
+    //   v.literal("beginner"),
+    //   v.literal("intermediate"),
+    //   v.literal("advanced"),
+    //   v.literal("professional")
+    // )),
+    // Hexagon Stats (0-100 scale) - These will be populated by peer-rating aggregation
+    speed: v.optional(v.number()),
+    // durability: v.optional(v.number()), // Removed, focusing on 6 core stats for hexagon
+    defense: v.optional(v.number()),
+    offense: v.optional(v.number()),
+    passing: v.optional(v.number()),
+    shooting: v.optional(v.number()),
+    dribbling: v.optional(v.number()),
+
     createdAt: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
   })

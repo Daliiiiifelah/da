@@ -36,7 +36,84 @@ export const getCurrentUserProfile = query({
       skillLevel: profile?.skillLevel ?? null,
       favoritePosition: profile?.favoritePosition ?? null,
       uniqueUserId: profile?.uniqueUserId ?? null,
+      // Hexagon Stats (6 core stats)
+      speed: profile?.speed ?? null,
+      // durability: profile?.durability ?? null, // Removed from core 6
+      defense: profile?.defense ?? null,
+      offense: profile?.offense ?? null,
+      passing: profile?.passing ?? null,
+      shooting: profile?.shooting ?? null,
+      dribbling: profile?.dribbling ?? null,
     };
+  },
+});
+
+// Internal mutation to update aggregated stats for a user profile
+export const updateAggregatedProfileStats = mutation({
+  args: { ratedUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    const allRatingsForUser = await ctx.db
+      .query("playerRatings")
+      .withIndex("by_ratedUser", (q) => q.eq("ratedUserId", args.ratedUserId))
+      .collect();
+
+    if (allRatingsForUser.length === 0) {
+      // No ratings yet, perhaps set to a default or null? For now, do nothing or ensure defaults.
+      // Or, ensure profile fields are just v.optional() and handle null in frontend.
+      // Let's ensure it tries to update with nulls if no ratings, to clear out old values if any.
+    }
+
+    const gradeToValueMapping: Record<string, number> = {
+      S: 95, // Mid-point of 90-100
+      A: 85, // Mid-point of 80-89
+      B: 75, // Mid-point of 70-79
+      C: 65, // Mid-point of 60-69
+      D: 55, // Mid-point of 50-59 (or adjust D's range, e.g. 0-59 -> ~30)
+    };
+    const MIN_RATINGS_FOR_AVERAGE = 1; // Minimum ratings before calculating an average
+
+    const attributes: (keyof Doc<"playerRatings">)[] = [
+      "speedGiven", "defenseGiven", "offenseGiven",
+      "shootingGiven", "dribblingGiven", "passingGiven"
+    ];
+
+    const profileStatsUpdate: Partial<Doc<"userProfiles">> = {};
+
+    for (const attributeGivenKey of attributes) {
+      const profileStatKey = attributeGivenKey.replace("Given", "") as keyof Doc<"userProfiles">;
+
+      const validRatingsForAttribute = allRatingsForUser
+        .map(r => r[attributeGivenKey])
+        .filter(grade => grade !== null && grade !== undefined && gradeToValueMapping[grade as string] !== undefined);
+
+      if (validRatingsForAttribute.length >= MIN_RATINGS_FOR_AVERAGE) {
+        const sumOfValues = validRatingsForAttribute.reduce((sum, grade) => sum + gradeToValueMapping[grade as string], 0);
+        const averageValue = Math.round(sumOfValues / validRatingsForAttribute.length);
+        profileStatsUpdate[profileStatKey] = averageValue;
+      } else {
+        profileStatsUpdate[profileStatKey] = null; // Set to null if not enough ratings
+      }
+    }
+
+    // Ensure only the 6 core stats are being updated here, removing durability if it was in profileStatsUpdate
+    delete (profileStatsUpdate as any).durability;
+
+
+    const userProfile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_userId", (q) => q.eq("userId", args.ratedUserId))
+      .unique();
+
+    if (userProfile) {
+      await ctx.db.patch(userProfile._id, profileStatsUpdate);
+    } else {
+      // This case should ideally not happen if a profile is created on user signup.
+      // If it can, we might need to insert a new profile with these stats.
+      // For now, assuming profile exists if user is being rated.
+      console.warn(`No userProfile found for ratedUserId: ${args.ratedUserId} during stat aggregation.`);
+    }
+
+    return { success: true, updatedStats: profileStatsUpdate };
   },
 });
 
@@ -63,6 +140,14 @@ export const getUserPublicProfile = query({
       skillLevel: profile?.skillLevel ?? null,
       favoritePosition: profile?.favoritePosition ?? null,
       uniqueUserId: profile?.uniqueUserId ?? null,
+      // Hexagon Stats (6 core stats)
+      speed: profile?.speed ?? null,
+      // durability: profile?.durability ?? null, // Removed from core 6
+      defense: profile?.defense ?? null,
+      offense: profile?.offense ?? null,
+      passing: profile?.passing ?? null,
+      shooting: profile?.shooting ?? null,
+      dribbling: profile?.dribbling ?? null,
     };
   },
 });
@@ -81,6 +166,14 @@ export const updateUserProfile = mutation({
       v.literal("advanced"),
       v.literal("professional")
     )),
+    // Hexagon Stats
+    speed: v.optional(v.number()),
+    durability: v.optional(v.number()),
+    defense: v.optional(v.number()),
+    offense: v.optional(v.number()),
+    passing: v.optional(v.number()),
+    shooting: v.optional(v.number()),
+    dribbling: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await getLoggedInUserOrThrow(ctx);
@@ -115,6 +208,19 @@ export const updateUserProfile = mutation({
     // Validate age
     if (args.age !== undefined && (args.age < 13 || args.age > 100)) {
       throw new Error("Age must be between 13 and 100.");
+    }
+
+    // Validate Hexagon Stats (0-100)
+    const statsToValidate: (keyof typeof args)[] = ["speed", "durability", "defense", "offense", "passing", "shooting", "dribbling"];
+    for (const statName of statsToValidate) {
+      const statValue = args[statName];
+      if (statValue !== undefined) {
+        if (typeof statValue !== 'number' || statValue < 0 || statValue > 100) {
+          throw new Error(`${statName.charAt(0).toUpperCase() + statName.slice(1)} stat must be a number between 0 and 100.`);
+        }
+        // Optional: round to integer or specific decimal places if desired
+        // args[statName] = Math.round(statValue);
+      }
     }
 
     // Check if profile exists

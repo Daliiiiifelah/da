@@ -171,41 +171,59 @@ function CreateMatchForm({ onClose }: { onClose: () => void }) {
 }
 
 const FOOTBALL_POSITIONS = ["goalkeeper", "defender", "midfielder", "forward"] as const;
+const RATING_ATTRIBUTES = ["speed", "defense", "offense", "shooting", "dribbling", "passing"] as const;
+type RatingAttribute = typeof RATING_ATTRIBUTES[number];
+type Grade = "S" | "A" | "B" | "C" | "D";
 
-interface PlayerRatingInput {
-  ratedUserId: Id<"users">;
-  stars: number; 
+interface AttributeRatingsInput {
   suggestion?: string;
+  speedGiven?: Grade | "";
+  defenseGiven?: Grade | "";
+  offenseGiven?: Grade | "";
+  shootingGiven?: Grade | "";
+  dribblingGiven?: Grade | "";
+  passingGiven?: Grade | "";
 }
 
 function RatePlayersModal({ isOpen, onClose, matchId, currentUserId }: { isOpen: boolean; onClose: () => void; matchId: Id<"matches">; currentUserId: Id<"users"> | null }) {
   const playersToRateData = useQuery(api.ratings.getPlayersToRate, matchId ? { matchId } : "skip");
   const submitRatingMutation = useMutation(api.ratings.submitRating);
-  const [ratings, setRatings] = useState<Record<Id<"users">, PlayerRatingInput>>({});
+  const [ratings, setRatings] = useState<Record<Id<"users">, AttributeRatingsInput>>({});
 
   useEffect(() => {
     if (playersToRateData) {
-      const initialRatings: Record<Id<"users">, PlayerRatingInput> = {};
+      const initialRatings: Record<Id<"users">, AttributeRatingsInput> = {};
       playersToRateData.forEach(player => {
         if (!player.alreadyRated) {
-          initialRatings[player.userId] = { ratedUserId: player.userId, stars: 0 };
+          initialRatings[player.userId] = {
+            suggestion: "",
+            speedGiven: "",
+            defenseGiven: "",
+            offenseGiven: "",
+            shootingGiven: "",
+            dribblingGiven: "",
+            passingGiven: ""
+          };
         }
       });
       setRatings(initialRatings);
     }
   }, [playersToRateData]);
 
-  const handleStarChange = (ratedUserId: Id<"users">, stars: number) => {
+  const handleAttributeGradeChange = (ratedUserId: Id<"users">, attributeName: `${RatingAttribute}Given`, grade: Grade) => {
     setRatings(prev => ({
       ...prev,
-      [ratedUserId]: { ...prev[ratedUserId], ratedUserId, stars },
+      [ratedUserId]: {
+        ...prev[ratedUserId],
+        [attributeName]: grade,
+      },
     }));
   };
 
   const handleSuggestionChange = (ratedUserId: Id<"users">, suggestion: string) => {
     setRatings(prev => ({
       ...prev,
-      [ratedUserId]: { ...prev[ratedUserId], ratedUserId, suggestion },
+      [ratedUserId]: { ...prev[ratedUserId], suggestion },
     }));
   };
 
@@ -216,16 +234,30 @@ function RatePlayersModal({ isOpen, onClose, matchId, currentUserId }: { isOpen:
     }
     let allSubmittedSuccessfully = true;
     let submittedCount = 0;
-    for (const ratedUserId in ratings) {
-      const rating = ratings[ratedUserId as Id<"users">];
-      if (rating.stars > 0 && rating.stars <= 7) { 
+    for (const rUserId in ratings) {
+      const ratedUserId = rUserId as Id<"users">;
+      const rating = ratings[ratedUserId];
+
+      // Check if any attribute is rated or if a suggestion is provided
+      const isAnyAttributeRated = RATING_ATTRIBUTES.some(attr => !!rating[`${attr}Given` as keyof AttributeRatingsInput]);
+      const hasSuggestion = rating.suggestion && rating.suggestion.trim() !== "";
+
+      if (isAnyAttributeRated || hasSuggestion) {
         try {
-          await submitRatingMutation({
+          // Prepare payload, ensuring only set grades are sent
+          const payload: any = {
             matchId,
-            ratedUserId: rating.ratedUserId,
-            stars: rating.stars,
+            ratedUserId,
             suggestion: rating.suggestion,
+          };
+          RATING_ATTRIBUTES.forEach(attr => {
+            const attributeKey = `${attr}Given` as keyof AttributeRatingsInput;
+            if (rating[attributeKey]) {
+              payload[attributeKey] = rating[attributeKey];
+            }
           });
+
+          await submitRatingMutation(payload);
           submittedCount++;
         } catch (error) {
           allSubmittedSuccessfully = false;
@@ -256,34 +288,59 @@ function RatePlayersModal({ isOpen, onClose, matchId, currentUserId }: { isOpen:
         <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
           {unratedPlayers.map((player) => (
             <div key={player.userId} className="p-4 border border-border rounded-md shadow-sm bg-input">
-              <h4 className="font-semibold text-lg text-primary">{player.name} <span className="text-sm text-muted-foreground">({player.position})</span></h4>
-              <div className="my-2">
-                <p className="text-sm mb-1 text-muted-foreground">Rating (1-7 stars):</p>
-                <div className="flex space-x-1">
-                  {[1, 2, 3, 4, 5, 6, 7].map((star) => (
-                    <button
-                      key={star}
-                      onClick={() => handleStarChange(player.userId, star)}
-                      className={`w-8 h-8 rounded-full border transition-colors
-                        ${ratings[player.userId]?.stars >= star ? 'bg-text-yellow-accent border-yellow-600 text-card' : 'bg-secondary hover:bg-secondary/80 border-border'}
-                      `}
-                    >
-                      &#9733;
-                    </button>
-                  ))}
-                </div>
+              <h4 className="font-semibold text-lg text-primary mb-3">{player.name} <span className="text-sm text-muted-foreground">({player.position})</span></h4>
+
+              <div className="space-y-3">
+                {RATING_ATTRIBUTES.map(attr => {
+                  const attributeKey = `${attr}Given` as keyof AttributeRatingsInput;
+                  const currentGrade = ratings[player.userId]?.[attributeKey];
+                  return (
+                    <div key={attr}>
+                      <p className="text-sm mb-1 text-muted-foreground capitalize">{attr}:</p>
+                      <div className="flex space-x-1">
+                        {(["S", "A", "B", "C", "D"] as Grade[]).map(grade => (
+                          <button
+                            key={grade}
+                            type="button"
+                            onClick={() => handleAttributeGradeChange(player.userId, attributeKey, grade)}
+                            className={`w-8 h-8 rounded-md border text-sm font-semibold transition-all hover:opacity-90
+                              ${currentGrade === grade
+                                ? (grade === "S" ? "bg-yellow-400 border-yellow-600 text-yellow-900 ring-2 ring-yellow-500" :
+                                   grade === "A" ? "bg-green-400 border-green-600 text-green-900 ring-2 ring-green-500" :
+                                   grade === "B" ? "bg-blue-400 border-blue-600 text-blue-900 ring-2 ring-blue-500" :
+                                   grade === "C" ? "bg-orange-400 border-orange-600 text-orange-900 ring-2 ring-orange-500" :
+                                   "bg-red-400 border-red-600 text-red-900 ring-2 ring-red-500") // D
+                                : "bg-secondary border-border hover:bg-secondary/80"
+                              }`}
+                          >
+                            {grade}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              {ratings[player.userId]?.stars > 0 && ratings[player.userId]?.stars <= 3 && (
-                <TextareaField
-                  label="Constructive Feedback (Optional):"
-                  value={ratings[player.userId]?.suggestion || ""}
-                  onChange={(e) => handleSuggestionChange(player.userId, e.target.value)}
-                  placeholder="Help this Egoist sharpen their skills!"
-                />
-              )}
+
+              <TextareaField
+                className="mt-4"
+                label="Constructive Feedback (Optional):"
+                value={ratings[player.userId]?.suggestion || ""}
+                onChange={(e) => handleSuggestionChange(player.userId, e.target.value)}
+                placeholder="Help this Egoist sharpen their skills!"
+              />
             </div>
           ))}
-          <Button onClick={handleSubmitRatings} className="w-full mt-4" disabled={Object.values(ratings).every(r => r.stars === 0)}>Submit All Ratings</Button>
+          <Button
+            onClick={handleSubmitRatings}
+            className="w-full mt-4"
+            disabled={Object.values(ratings).every(r =>
+              !RATING_ATTRIBUTES.some(attr => !!r[`${attr}Given` as keyof AttributeRatingsInput]) &&
+              (!r.suggestion || r.suggestion.trim() === "")
+            )}
+          >
+            Submit All Ratings
+          </Button>
         </div>
       )}
     </Modal>

@@ -1,4 +1,5 @@
 import { mutation, query, QueryCtx, MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api"; // Import internal
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
@@ -20,15 +21,27 @@ export const submitRating = mutation({
   args: {
     matchId: v.id("matches"),
     ratedUserId: v.id("users"),
-    stars: v.number(), // Expecting 1-7
+    // stars: v.number(), // Expecting 1-7 // Removed
     suggestion: v.optional(v.string()),
+    speedGiven: v.optional(v.union(v.literal("S"), v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"))),
+    defenseGiven: v.optional(v.union(v.literal("S"), v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"))),
+    offenseGiven: v.optional(v.union(v.literal("S"), v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"))),
+    shootingGiven: v.optional(v.union(v.literal("S"), v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"))),
+    dribblingGiven: v.optional(v.union(v.literal("S"), v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"))),
+    passingGiven: v.optional(v.union(v.literal("S"), v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"))),
   },
   handler: async (ctx, args) => {
     const raterUser = await getLoggedInUserOrThrow(ctx);
 
-    if (args.stars < 1 || args.stars > 7) {
-      throw new Error("Star rating must be between 1 and 7.");
+    // Basic validation: at least one attribute must be rated if no suggestion is given
+    const anAttributeIsRated = args.speedGiven || args.defenseGiven || args.offenseGiven || args.shootingGiven || args.dribblingGiven || args.passingGiven;
+    if (!anAttributeIsRated && !args.suggestion) {
+      throw new Error("At least one attribute must be rated or a suggestion provided.");
     }
+
+    // if (args.stars < 1 || args.stars > 7) { // Star validation removed
+    //   throw new Error("Star rating must be between 1 and 7.");
+    // }
 
     const match = await ctx.db.get(args.matchId);
     if (!match) {
@@ -77,8 +90,19 @@ export const submitRating = mutation({
       matchId: args.matchId,
       raterUserId: raterUser._id,
       ratedUserId: args.ratedUserId,
-      stars: args.stars,
+      // stars: args.stars, // Removed
       suggestion: args.suggestion,
+      speedGiven: args.speedGiven,
+      defenseGiven: args.defenseGiven,
+      offenseGiven: args.offenseGiven,
+      shootingGiven: args.shootingGiven,
+      dribblingGiven: args.dribblingGiven,
+      passingGiven: args.passingGiven,
+    });
+
+    // Trigger profile stat aggregation for the rated user
+    await ctx.scheduler.runAfter(0, internal.userProfiles.updateAggregatedProfileStats, {
+      ratedUserId: args.ratedUserId
     });
 
     return { success: true };
