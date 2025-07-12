@@ -55,51 +55,30 @@ function formatTimeAgo(timestamp: number): string {
   return `${days}d ago`;
 }
 
-export function NotificationsModal({ isOpen, onClose, onUserClick }: { 
-  isOpen: boolean; 
-  onClose: () => void; 
+export function NotificationsModal({ isOpen, onClose, onUserClick }: {
+  isOpen: boolean;
+  onClose: () => void;
   onUserClick: (userId: Id<"users">) => void;
 }) {
-  const notifications = useQuery(api.notifications.getMyNotifications);
-  const markAsReadMutation = useMutation(api.notifications.markNotificationAsRead);
-  const markAllAsReadMutation = useMutation(api.notifications.markAllNotificationsAsRead);
-  const acceptFriendRequestMutation = useMutation(api.friends.acceptFriendRequest);
-  const declineFriendRequestMutation = useMutation(api.friends.declineFriendRequest);
-  const acceptPartyInvitationMutation = useMutation(api.partyInvitations.acceptPartyInvitation);
-  const declinePartyInvitationMutation = useMutation(api.partyInvitations.declinePartyInvitation);
+  const legacyNotifications = useQuery(api.notifications.getMyNotifications);
+  const friendRequests = useQuery(api.friends.listPendingFriendRequests);
 
-  const handleMarkAsRead = async (notificationId: Id<"notifications">) => {
-    try {
-      await markAsReadMutation({ notificationId });
-    } catch (error) {
-      toast.error(getErrorMessage(error));
-    }
-  };
+  const acceptFriendRequest = useMutation(api.friends.acceptFriendRequest);
+  const declineFriendRequest = useMutation(api.friends.declineFriendRequest);
 
-  const handleMarkAllAsRead = async () => {
+  const handleAccept = async (requestId: Id<"friendRequests">) => {
     try {
-      await markAllAsReadMutation({});
-      toast.success("All notifications marked as read");
-    } catch (error) {
-      toast.error(getErrorMessage(error));
-    }
-  };
-
-  const handleAcceptFriendRequest = async (friendRequestId: Id<"friendRequests">, notificationId: Id<"notifications">) => {
-    try {
-      await acceptFriendRequestMutation({ friendRequestId });
-      await markAsReadMutation({ notificationId });
+      await acceptFriendRequest({ requestId });
       toast.success("Friend request accepted!");
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   };
 
-  const handleDeclineFriendRequest = async (friendRequestId: Id<"friendRequests">, notificationId: Id<"notifications">) => {
+  const handleDecline = async (requestId: Id<"friendRequests">) => {
     try {
-      await declineFriendRequestMutation({ friendRequestId });
-      await markAsReadMutation({ notificationId });
-      toast.info("Friend request declined");
+      await declineFriendRequest({ requestId });
+      toast.info("Friend request declined.");
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -146,130 +125,65 @@ export function NotificationsModal({ isOpen, onClose, onUserClick }: {
     onClose();
   };
 
-  const unreadCount = notifications?.filter(n => !n.isRead).length ?? 0;
+  const isLoading = friendRequests === undefined;
+  const noNotifications = friendRequests && friendRequests.length === 0;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Notifications" size="lg">
       <div className="space-y-4">
-        {notifications === undefined && (
+        {isLoading && (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="text-muted-foreground mt-2">Loading notifications...</p>
+            <p className="text-muted-foreground mt-2">Loading...</p>
           </div>
         )}
 
-        {notifications && notifications.length === 0 && (
+        {noNotifications && (
           <div className="text-center py-8">
-            <p className="text-muted-foreground">No notifications yet</p>
-            <p className="text-sm text-muted-foreground mt-2">You'll see friend requests and party invitations here</p>
+            <p className="text-muted-foreground">No new notifications</p>
+            <p className="text-sm text-muted-foreground mt-2">You'll see friend requests and party invitations here.</p>
           </div>
         )}
 
-        {notifications && notifications.length > 0 && (
-          <>
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-muted-foreground">
-                {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'All caught up!'}
-              </p>
-              {unreadCount > 0 && (
-                <Button onClick={handleMarkAllAsRead} variant="ghost" size="sm">
-                  Mark all as read
-                </Button>
-              )}
-            </div>
-
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {notifications.map((notification) => (
-                <div 
-                  key={notification._id} 
-                  className={`p-4 rounded-lg border transition-colors ${
-                    notification.isRead 
-                      ? 'bg-input border-border' 
-                      : 'bg-accent/10 border-accent/30'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    {notification.fromUserProfileImageUrl && (
-                      <img 
-                        src={notification.fromUserProfileImageUrl} 
-                        alt={notification.fromUserName ?? "User"} 
-                        className="w-10 h-10 rounded-full object-cover border border-primary cursor-pointer"
-                        onClick={() => notification.fromUserId && handleUserProfileClick(notification.fromUserId)}
+        {!isLoading && !noNotifications && (
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {/* Friend Requests Section */}
+            {friendRequests && friendRequests.length > 0 && (
+              <div>
+                <h4 className="text-lg font-semibold text-primary mb-2">Friend Requests</h4>
+                {friendRequests.map((req) => (
+                  <div key={req._id} className="p-4 rounded-lg border bg-accent/10 border-accent/30 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={req.requesterImageUrl ?? '/blue-lock-logo-placeholder.png'}
+                        alt={req.requesterName}
+                        className="w-10 h-10 rounded-full object-cover border-2 border-primary cursor-pointer"
+                        onClick={() => handleUserProfileClick(req.requesterId)}
                       />
-                    )}
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-card-foreground">{notification.message}</p>
-                          {notification.matchName && (
-                            <p className="text-sm text-accent font-medium mt-1">Match: {notification.matchName}</p>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {formatTimeAgo(notification._creationTime)}
+                      <div>
+                        <p className="text-card-foreground">
+                          <span
+                            className="font-semibold cursor-pointer hover:underline"
+                            onClick={() => handleUserProfileClick(req.requesterId)}
+                          >
+                            {req.requesterName}
+                          </span> sent you a friend request.
+                        </p>
+                         <p className="text-xs text-muted-foreground mt-1">
+                            {formatTimeAgo(req._creationTime)}
                           </p>
-                        </div>
-                        {!notification.isRead && (
-                          <div className="w-2 h-2 bg-accent rounded-full mt-2"></div>
-                        )}
                       </div>
-
-                      {/* Friend request actions */}
-                      {notification.type === "friend_request_received" && notification.friendRequestId && (
-                        <div className="flex gap-2 mt-3">
-                          <Button 
-                            onClick={() => handleAcceptFriendRequest(notification.friendRequestId!, notification._id)}
-                            variant="primary" 
-                            size="sm"
-                          >
-                            Accept
-                          </Button>
-                          <Button 
-                            onClick={() => handleDeclineFriendRequest(notification.friendRequestId!, notification._id)}
-                            variant="secondary" 
-                            size="sm"
-                          >
-                            Decline
-                          </Button>
-                        </div>
-                      )}
-
-                      {/* Party invitation actions */}
-                      {notification.type === "party_invitation_received" && notification.partyInvitationId && (
-                        <div className="flex gap-2 mt-3">
-                          <Button 
-                            onClick={() => handleAcceptPartyInvitation(notification.partyInvitationId!, notification._id)}
-                            variant="primary" 
-                            size="sm"
-                          >
-                            Join Party
-                          </Button>
-                          <Button 
-                            onClick={() => handleDeclinePartyInvitation(notification.partyInvitationId!, notification._id)}
-                            variant="secondary" 
-                            size="sm"
-                          >
-                            Decline
-                          </Button>
-                        </div>
-                      )}
-
-                      {/* Mark as read button for other notifications */}
-                      {!["friend_request_received", "party_invitation_received"].includes(notification.type) && !notification.isRead && (
-                        <Button 
-                          onClick={() => handleMarkAsRead(notification._id)}
-                          variant="ghost" 
-                          size="sm"
-                          className="mt-2"
-                        >
-                          Mark as read
-                        </Button>
-                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={() => handleAccept(req._id)} variant="primary" size="sm">Accept</Button>
+                      <Button onClick={() => handleDecline(req._id)} variant="secondary" size="sm">Decline</Button>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </>
+                ))}
+              </div>
+            )}
+            {/* We can add other notification types like party invites here later */}
+          </div>
         )}
       </div>
     </Modal>
