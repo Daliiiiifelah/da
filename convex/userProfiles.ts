@@ -193,9 +193,14 @@ export const updateUserProfile = mutation({
   args: {
     displayName: v.optional(v.string()),
     bio: v.optional(v.string()),
-    favoritePosition: v.optional(v.string()),
+    favoritePosition: v.optional(v.union(
+      v.literal("goalkeeper"),
+      v.literal("defender"),
+      v.literal("midfielder"),
+      v.literal("forward")
+    )),
     profileImageUrl: v.optional(v.string()),
-    location: v.optional(v.string()),
+    location: v.optional(v.string()), // This is for general location text input
     age: v.optional(v.number()),
     skillLevel: v.optional(v.union(
       v.literal("beginner"),

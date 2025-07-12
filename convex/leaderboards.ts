@@ -7,19 +7,26 @@ const MIN_RATINGS_FOR_LEADERBOARD = 3; // Minimum number of ratings received to 
 export const getOverallWorldwideLeaderboard = query({
   args: {
     limit: v.optional(v.number()),
+    position: v.optional(v.union(
+      v.literal("goalkeeper"),
+      v.literal("defender"),
+      v.literal("midfielder"),
+      v.literal("forward")
+    )),
   },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 20; // Default to top 20
 
-    // Fetch all user profiles that have an overallScore and meet the minimum ratings count
-    // We will sort and limit in application code after fetching, as Convex query sorting on optional fields can be tricky.
-    // Alternatively, ensure overallScore is always set (e.g. to 0) if a user has a profile.
-    // For now, filter for non-null overallScore.
-    const profiles = await ctx.db
+    let queryChain = ctx.db
       .query("userProfiles")
-      .filter(q => q.neq(q.field("overallScore"), null)) // Ensure overallScore is calculated
-      .filter(q => q.gte(q.field("ratingsCount"), MIN_RATINGS_FOR_LEADERBOARD)) // Ensure minimum ratings
-      .collect();
+      .filter(q => q.neq(q.field("overallScore"), null))
+      .filter(q => q.gte(q.field("ratingsCount"), MIN_RATINGS_FOR_LEADERBOARD));
+
+    if (args.position) {
+      queryChain = queryChain.filter(q => q.eq(q.field("favoritePosition"), args.position));
+    }
+
+    const profiles = await queryChain.collect();
 
     // Sort by overallScore descending. If scores are equal, could add secondary sort (e.g., by ratingsCount, then displayName)
     const sortedProfiles = profiles.sort((a, b) => {

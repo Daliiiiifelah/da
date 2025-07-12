@@ -65,8 +65,13 @@ const applicationTables = {
     profileImageUrl: v.optional(v.string()),
     profileImageStorageId: v.optional(v.id("_storage")), // Legacy field for migration
     bio: v.optional(v.string()),
-    favoritePosition: v.optional(v.string()),
-    location: v.optional(v.string()),
+    favoritePosition: v.optional(v.union(
+      v.literal("goalkeeper"),
+      v.literal("defender"),
+      v.literal("midfielder"),
+      v.literal("forward")
+    )),
+    location: v.optional(v.string()), // User-defined general location string
     age: v.optional(v.number()),
     // skillLevel: v.optional(v.union( // To be removed, replaced by aggregated hexagon stats
     //   v.literal("beginner"),
