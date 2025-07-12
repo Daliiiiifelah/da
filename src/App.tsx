@@ -815,17 +815,49 @@ function ParticipantItem({ userId, initialName, position, onUserClick, team }: {
   );
 }
 
-function MatchList({ currentUserId, onUserClick }: { currentUserId: Id<"users"> | null; onUserClick: (userId: Id<"users">) => void; }) {
-  const openMatchesData = useQuery(api.matches.listOpenMatches); 
+function MatchList({ currentUserId, onUserClick, onCreateMatchClick }: { currentUserId: Id<"users"> | null; onUserClick: (userId: Id<"users">) => void; onCreateMatchClick: () => void; }) {
+  const [skillLevelFilter, setSkillLevelFilter] = useState<string | null>(null);
+
+  const openMatchesData = useQuery(
+    api.matches.listOpenMatches,
+    skillLevelFilter ? { filterSkillLevel: skillLevelFilter as any } : {}
+  );
+
   if (openMatchesData === undefined) {
     return <div className="text-center py-8 text-muted-foreground">Loading matches... <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mt-2"></div></div>;
   }
   const openMatches = openMatchesData || [];
+  const skillLevels = ["beginner", "intermediate", "advanced"];
+
   return (
     <div>
-      <h2 className="text-3xl font-bold text-primary mb-6">Open Team Matches for Egoists</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-3xl font-bold text-primary">Open Team Matches for Egoists</h2>
+        <div className="flex items-center space-x-2">
+          <span className="text-sm font-medium text-muted-foreground">Filter by Skill:</span>
+          <Button
+            onClick={() => setSkillLevelFilter(null)}
+            variant={!skillLevelFilter ? "primary" : "secondary"}
+            size="sm"
+          >
+            All
+          </Button>
+          {skillLevels.map(level => (
+            <Button
+              key={level}
+              onClick={() => setSkillLevelFilter(level)}
+              variant={skillLevelFilter === level ? "primary" : "secondary"}
+              size="sm"
+              className="capitalize"
+            >
+              {level}
+            </Button>
+          ))}
+        </div>
+      </div>
+
       {openMatches.length === 0 ? (
-        <p className="text-muted-foreground">No open matches currently. Why not <span className="text-accent cursor-pointer hover:underline" onClick={() => {/* TODO: Open Create Match Modal */}}>create one</span>, Egoist?</p>
+        <p className="text-muted-foreground text-center py-8">No open matches currently match your filter. Why not <span className="text-accent cursor-pointer hover:underline" onClick={onCreateMatchClick}>create one</span>, Egoist?</p>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {openMatches.map((match) => ( <MatchCard key={match._id} match={match} currentUserId={currentUserId} onUserClick={onUserClick} /> ))}
@@ -984,7 +1016,7 @@ export default function App() {
               <p className="text-xl text-card-foreground mb-6">
                 Welcome back, <span className="font-semibold text-primary">{currentUserProfileDetails.displayName ?? currentUserProfileDetails.name ?? currentUserProfileDetails.email}!</span> Time to find a team match, <span className="text-text-pink-accent">Egoist</span>.
               </p>
-              <MatchList currentUserId={loggedInUser._id} onUserClick={handleUserClick} />
+              <MatchList currentUserId={loggedInUser._id} onUserClick={handleUserClick} onCreateMatchClick={() => setShowCreateMatchModal(true)} />
               <MyMatchesDashboard currentUserId={loggedInUser._id} onUserClick={handleUserClick} />
             </>
           )}
