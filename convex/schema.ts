@@ -13,6 +13,17 @@ const applicationTables = {
     status: v.string(), 
     locationAvailable: v.boolean(),
     partyName: v.optional(v.string()), // Custom party name for searching
+    // Venue Details
+    venueName: v.optional(v.string()),
+    address: v.optional(v.string()),
+    pitchType: v.optional(v.union(
+      v.literal("grass"),
+      v.literal("artificial_turf"),
+      v.literal("indoor_court"),
+      v.literal("dirt"),
+      v.literal("other")
+    )),
+    amenities: v.optional(v.array(v.string())),
   })
     .index("by_creatorId_and_dateTime", ["creatorId", "dateTime"])
     .index("by_status_and_dateTime", ["status", "dateTime"])

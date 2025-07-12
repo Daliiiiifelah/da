@@ -25,6 +25,17 @@ export const createMatch = mutation({
     description: v.optional(v.string()),
     locationAvailable: v.boolean(),
     partyName: v.optional(v.string()),
+    // Venue Details
+    venueName: v.optional(v.string()),
+    address: v.optional(v.string()),
+    pitchType: v.optional(v.union(
+      v.literal("grass"),
+      v.literal("artificial_turf"),
+      v.literal("indoor_court"),
+      v.literal("dirt"),
+      v.literal("other")
+    )),
+    amenities: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const user = await getLoggedInUserOrThrow(ctx);
@@ -66,6 +77,11 @@ export const createMatch = mutation({
       status: "open",
       locationAvailable: args.locationAvailable,
       partyName: partyName,
+      // Venue Details
+      venueName: args.venueName,
+      address: args.address,
+      pitchType: args.pitchType,
+      amenities: args.amenities,
     });
     return matchId;
   },
