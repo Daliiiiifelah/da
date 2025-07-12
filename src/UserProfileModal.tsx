@@ -85,9 +85,10 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
       const [selectedFile, setSelectedFile] = useState<File | null>(null);
       const [isUploading, setIsUploading] = useState(false);
       const [bio, setBio] = useState("");
-      const [isEditingBio, setIsEditingBio] = useState(false);
+      const [isEditingBio, setIsEditingBio] = useState(false); // This will now control bio and country editing
       const [displayName, setDisplayName] = useState("");
       const [isEditingDisplayName, setIsEditingDisplayName] = useState(false);
+      const [country, setCountry] = useState(""); // New state for country
       const fileInputRef = useRef<HTMLInputElement>(null);
       const [showReportModal, setShowReportModal] = useState(false);
       const [showInviteModal, setShowInviteModal] = useState(false);
@@ -122,9 +123,10 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
         if (userProfileToView) {
           setBio(userProfileToView.bio ?? "");
           setDisplayName(userProfileToView.displayName ?? userProfileToView.name ?? "");
+          setCountry(userProfileToView.country ?? ""); // Initialize country
           // Initialize hexagon stats
           setSpeed(userProfileToView.speed?.toString() ?? "");
-          setDurability(userProfileToView.durability?.toString() ?? "");
+          // setDurability(userProfileToView.durability?.toString() ?? ""); // Durability removed
           setDefense(userProfileToView.defense?.toString() ?? "");
           setOffense(userProfileToView.offense?.toString() ?? "");
           setPassing(userProfileToView.passing?.toString() ?? "");
@@ -140,7 +142,19 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
 
       const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => { if (!viewingOwnProfile) return; const file = event.target.files?.[0]; if (file) { setSelectedFile(file); await handleImageUpload(file); } };
       const handleImageUpload = async (fileToUpload: File) => { if (!viewingOwnProfile || !fileToUpload) return; setIsUploading(true); try { const uploadUrl = await generateUploadUrl({}); const result = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": fileToUpload.type }, body: fileToUpload }); const { storageId } = await result.json(); if (!result.ok) throw new Error(`Upload failed: ${JSON.stringify(storageId)}`); await saveProfilePicture({ storageId }); toast.success("Profile picture updated!"); setSelectedFile(null); } catch (error) { toast.error(`Failed to upload image: ${getErrorMessage(error)}`); } finally { setIsUploading(false); if (fileInputRef.current) fileInputRef.current.value = ""; } };
-      const handleBioSave = async (e: FormEvent) => { e.preventDefault(); if (!viewingOwnProfile) return; try { await updateBioMutation({ bio }); toast.success("Bio updated!"); setIsEditingBio(false); } catch (error) { toast.error(`Failed to update bio: ${getErrorMessage(error)}`); } };
+
+      const handleProfileTextualInfoSave = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!viewingOwnProfile) return;
+        try {
+          await updateUserProfileMutation({ bio, country: country.trim() === "" ? undefined : country.trim() });
+          toast.success("Profile details updated!");
+          setIsEditingBio(false);
+        } catch (error) {
+          toast.error(`Failed to update profile details: ${getErrorMessage(error)}`);
+        }
+      };
+
       const handleDisplayNameSave = async (e: FormEvent) => { e.preventDefault(); if (!viewingOwnProfile) return; try { await updateDisplayNameMutation({ displayName }); toast.success("Egoist Name updated!"); setIsEditingDisplayName(false); } catch (error) { toast.error(`Failed to update Egoist Name: ${getErrorMessage(error)}`); } };
       const handleSendRequest = async () => { if (!userId || viewingOwnProfile) return; try { await sendFriendRequestMutation({ requesteeId: userId }); toast.success("Friend request sent!"); } catch (error) { toast.error(getErrorMessage(error)); } };
       const handleAcceptRequest = async (requestId: Id<"friendRequests">) => { try { await acceptFriendRequestMutation({ friendRequestId: requestId }); toast.success("Friend request accepted!"); } catch (error) { toast.error(getErrorMessage(error)); } };
@@ -247,9 +261,23 @@ import React, { useState, useEffect, useRef, FormEvent } from 'react';
 
               {isBlockedByThisUser && !viewingOwnProfile ? ( <p className="text-center text-muted-foreground p-4 bg-input rounded-md">Content hidden as you are blocked by this user.</p> ) : ( <>
                 <div>
-                  <h5 className="text-xl font-semibold text-text-cyan-accent mb-2 border-b border-border pb-1">About Me</h5>
-                  {viewingOwnProfile && isEditingBio ? ( <form onSubmit={handleBioSave}> <TextareaField value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Unleash your ego, tell us about yourself..." rows={4}/> <div className="flex gap-2 mt-2"> <Button type="submit">Save Bio</Button> <Button type="button" variant="secondary" onClick={() => { setIsEditingBio(false); setBio(profileData.bio ?? "");}}>Cancel</Button> </div> </form>
-                  ) : ( <> <p className="text-card-foreground whitespace-pre-wrap min-h-[60px] bg-input p-3 rounded-md">{profileData.bio || <span className="text-muted-foreground italic">{viewingOwnProfile ? "No bio yet. Share your philosophy!" : "This egoist prefers actions over words."}</span>}</p> {viewingOwnProfile && <Button variant="ghost" onClick={() => setIsEditingBio(true)} className="text-sm mt-1 text-accent">Edit Bio</Button>} </>)}
+                  <h5 className="text-xl font-semibold text-text-cyan-accent mb-2 border-b border-border pb-1">About & Location</h5>
+                  {viewingOwnProfile && isEditingBio ? (
+                    <form onSubmit={handleProfileTextualInfoSave} className="space-y-3">
+                      <TextareaField label="Bio" value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Unleash your ego, tell us about yourself..." rows={3}/>
+                      <InputField label="Country" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="e.g., Japan, Germany" />
+                      <div className="flex gap-2 mt-2">
+                        <Button type="submit">Save Details</Button>
+                        <Button type="button" variant="secondary" onClick={() => { setIsEditingBio(false); setBio(profileData.bio ?? ""); setCountry(profileData.country ?? "");}}>Cancel</Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <>
+                      <p className="text-card-foreground whitespace-pre-wrap min-h-[40px] bg-input p-3 rounded-md mb-2">{profileData.bio || <span className="text-muted-foreground italic">{viewingOwnProfile ? "No bio yet. Share your philosophy!" : "This egoist prefers actions over words."}</span>}</p>
+                      <p className="text-card-foreground bg-input p-3 rounded-md">Country: {profileData.country || <span className="text-muted-foreground italic">{viewingOwnProfile ? "Not set" : "Not specified"}</span>}</p>
+                      {viewingOwnProfile && <Button variant="ghost" onClick={() => setIsEditingBio(true)} className="text-sm mt-1 text-accent">Edit Details</Button>}
+                    </>
+                  )}
                 </div>
                 <div>
                   <h5 className="text-xl font-semibold text-text-green-accent mb-2 border-b border-border pb-1">Egoist Stats</h5>

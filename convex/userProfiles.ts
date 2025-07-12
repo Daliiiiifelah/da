@@ -44,6 +44,10 @@ export const getCurrentUserProfile = query({
       passing: profile?.passing ?? null,
       shooting: profile?.shooting ?? null,
       dribbling: profile?.dribbling ?? null,
+      // Leaderboard fields
+      country: profile?.country ?? null,
+      overallScore: profile?.overallScore ?? null,
+      ratingsCount: profile?.ratingsCount ?? 0, // Default to 0 if null
     };
   },
 });
@@ -96,7 +100,28 @@ export const updateAggregatedProfileStats = mutation({
     }
 
     // Ensure only the 6 core stats are being updated here, removing durability if it was in profileStatsUpdate
-    delete (profileStatsUpdate as any).durability;
+    delete (profileStatsUpdate as any).durability; // this line is actually not needed if durability is not in `attributes`
+
+    // Calculate overallScore as the average of the 6 valid attribute scores
+    let sumOfValidProfileStats = 0;
+    let countOfValidProfileStats = 0;
+    const coreStatKeys: (keyof Doc<"userProfiles">)[] = ["speed", "defense", "offense", "shooting", "dribbling", "passing"];
+
+    coreStatKeys.forEach(key => {
+      const value = profileStatsUpdate[key];
+      if (typeof value === 'number') { // Check if it's a number (not null)
+        sumOfValidProfileStats += value;
+        countOfValidProfileStats++;
+      }
+    });
+
+    if (countOfValidProfileStats > 0) {
+      profileStatsUpdate.overallScore = Math.round(sumOfValidProfileStats / countOfValidProfileStats);
+    } else {
+      profileStatsUpdate.overallScore = null; // Or a default like 0 or 50
+    }
+
+    profileStatsUpdate.ratingsCount = allRatingsForUser.length;
 
 
     const userProfile = await ctx.db
@@ -105,12 +130,20 @@ export const updateAggregatedProfileStats = mutation({
       .unique();
 
     if (userProfile) {
-      await ctx.db.patch(userProfile._id, profileStatsUpdate);
+      // Include existing fields not being updated by this aggregation
+      const finalUpdate = {
+        ...profileStatsUpdate,
+        // Ensure other fields like displayName, bio, etc. are not overwritten if not part of profileStatsUpdate
+        // This is implicitly handled if profileStatsUpdate only contains stat fields.
+        // However, to be safe, we could fetch existing profile and merge.
+        // For now, this assumes profileStatsUpdate only has stat-related fields + overallScore + ratingsCount
+      };
+      await ctx.db.patch(userProfile._id, finalUpdate);
     } else {
-      // This case should ideally not happen if a profile is created on user signup.
-      // If it can, we might need to insert a new profile with these stats.
-      // For now, assuming profile exists if user is being rated.
-      console.warn(`No userProfile found for ratedUserId: ${args.ratedUserId} during stat aggregation.`);
+      console.warn(`No userProfile found for ratedUserId: ${args.ratedUserId} during stat aggregation. Cannot update overallScore or ratingsCount.`);
+      // If profile doesn't exist, we might not want to create it here,
+      // as it should be created on user sign-up or first profile edit.
+      // For now, just log and don't create.
     }
 
     return { success: true, updatedStats: profileStatsUpdate };
@@ -148,6 +181,10 @@ export const getUserPublicProfile = query({
       passing: profile?.passing ?? null,
       shooting: profile?.shooting ?? null,
       dribbling: profile?.dribbling ?? null,
+      // Leaderboard fields
+      country: profile?.country ?? null,
+      overallScore: profile?.overallScore ?? null,
+      ratingsCount: profile?.ratingsCount ?? 0, // Default to 0 if null
     };
   },
 });
@@ -168,12 +205,13 @@ export const updateUserProfile = mutation({
     )),
     // Hexagon Stats
     speed: v.optional(v.number()),
-    durability: v.optional(v.number()),
+    // durability: v.optional(v.number()), // Removed as per schema adjustment to 6 core stats
     defense: v.optional(v.number()),
     offense: v.optional(v.number()),
     passing: v.optional(v.number()),
     shooting: v.optional(v.number()),
     dribbling: v.optional(v.number()),
+    country: v.optional(v.string()), // Added for leaderboard
   },
   handler: async (ctx, args) => {
     const user = await getLoggedInUserOrThrow(ctx);

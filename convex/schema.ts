@@ -83,6 +83,11 @@ const applicationTables = {
     shooting: v.optional(v.number()),
     dribbling: v.optional(v.number()),
 
+    // Fields for Leaderboards
+    country: v.optional(v.string()),
+    overallScore: v.optional(v.number()), // Calculated average of the 6 core stats (0-100)
+    ratingsCount: v.optional(v.number()), // Total number of rating entries received by this user
+
     createdAt: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
   })
