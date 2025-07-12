@@ -13,58 +13,43 @@ export const getOverallWorldwideLeaderboard = query({
       v.literal("midfielder"),
       v.literal("forward")
     )),
+    country: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const limit = args.limit ?? 20; // Default to top 20
+    const limit = args.limit ?? 50; // Increased default limit
 
-    let queryChain = ctx.db
+    // Start with a base query for profiles that are eligible for the leaderboard
+    let profiles = await ctx.db
       .query("userProfiles")
-      .filter(q => q.neq(q.field("overallScore"), null))
-      .filter(q => q.gte(q.field("ratingsCount"), MIN_RATINGS_FOR_LEADERBOARD));
+      .filter(q => q.and(
+        q.neq(q.field("overallScore"), null),
+        q.gte(q.field("ratingsCount"), MIN_RATINGS_FOR_LEADERBOARD)
+      ))
+      .collect();
 
+    // Apply filters in-memory
     if (args.position) {
-      queryChain = queryChain.filter(q => q.eq(q.field("favoritePosition"), args.position));
+      profiles = profiles.filter(p => p.favoritePosition === args.position);
+    }
+    if (args.country) {
+      profiles = profiles.filter(p => p.country === args.country);
     }
 
-    const profiles = await queryChain.collect();
-
-    // Sort by overallScore descending. If scores are equal, could add secondary sort (e.g., by ratingsCount, then displayName)
+    // Sort the filtered profiles
     const sortedProfiles = profiles.sort((a, b) => {
-      if (b.overallScore === null && a.overallScore === null) return 0;
-      if (b.overallScore === null) return -1; // a comes first if b is null
-      if (a.overallScore === null) return 1;  // b comes first if a is null
-
-      if (b.overallScore !== a.overallScore) {
-        return b.overallScore - a.overallScore;
+      // Primary sort: overallScore descending
+      if (a.overallScore !== b.overallScore) {
+        return (b.overallScore ?? 0) - (a.overallScore ?? 0);
       }
-      // Secondary sort by ratingsCount if overallScore is the same
-      if (b.ratingsCount && a.ratingsCount && b.ratingsCount !== a.ratingsCount) {
-        return b.ratingsCount - a.ratingsCount;
+      // Secondary sort: ratingsCount descending
+      if (a.ratingsCount !== b.ratingsCount) {
+        return (b.ratingsCount ?? 0) - (a.ratingsCount ?? 0);
       }
-      // Tertiary sort by displayName if both overallScore and ratingsCount are the same
+      // Tertiary sort: displayName ascending
       return (a.displayName ?? "").localeCompare(b.displayName ?? "");
     });
 
-    const leaderboardData = await Promise.all(
-        sortedProfiles.slice(0, limit).map(async (profile) => {
-        // We need the user document for the _id typically used in frontend for user context,
-        // though profile.userId is the same.
-        // If userProfiles._id is the one used for profile pages, then fetching user doc might not be needed here.
-        // Assuming profile.userId is sufficient for linking.
-        // const user = await ctx.db.get(profile.userId); // Not strictly needed if profile has all display info
-
-        return {
-          userId: profile.userId, // This is Id<"users">
-          uniqueUserId: profile.uniqueUserId,
-          displayName: profile.displayName,
-          profileImageUrl: profile.profileImageUrl,
-          overallScore: profile.overallScore,
-          country: profile.country,
-          ratingsCount: profile.ratingsCount,
-        };
-      })
-    );
-
-    return leaderboardData;
+    // Return the top N results after slicing
+    return sortedProfiles.slice(0, limit);
   },
 });

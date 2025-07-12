@@ -7,7 +7,7 @@ import { UserSearchModal } from "./UserSearchModal";
 import { NotificationsModal } from "./NotificationsModal";
 import { PartyChatModal } from "./PartyChatModal";
 import { PartySearchModal } from "./PartySearchModal";
-import { LeaderboardModal } from "./LeaderboardModal"; // Import LeaderboardModal
+import { Leaderboard } from "./Leaderboard";
 import { Toaster, toast } from "sonner";
 import React, { useState, useEffect, useMemo, FormEvent } from "react";
 import { Doc, Id } from "../convex/_generated/dataModel";
@@ -1057,11 +1057,15 @@ export default function App() {
         searchResults={partySearchResults}
       />
 
-      <LeaderboardModal
+      <Modal
         isOpen={showLeaderboardModal}
         onClose={() => setShowLeaderboardModal(false)}
-        onNavigateToProfile={handleUserClick} // Use existing handleUserClick for navigation
-      />
+        title="Global Egoist Leaderboard"
+        size="xl"
+        contentClassName="bg-background" // Give it a slightly different background
+      >
+        <Leaderboard onNavigateToProfile={handleUserClick} />
+      </Modal>
       
       <Toaster position="top-right" richColors theme="dark" />
       <footer className="text-center p-4 text-muted-foreground border-t border-border bg-card">
